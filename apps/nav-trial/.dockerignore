@@ -1,0 +1,5 @@
+bags/
+docs/
+**/build/
+**/install/
+**/log/

@@ -23,3 +23,7 @@ __pycache__/
 
 # OS noise
 .DS_Store
+.superpowers/
+
+apps/*/bags/*
+!apps/*/bags/.gitkeep
