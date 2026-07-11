@@ -46,10 +46,15 @@ per stumble, each naming the robium skill involved (or "no skill fired"):
 - [gazebo] worked as documented (bridge YAML pattern) ✓
 ```
 
+Beyond frictions, also capture *better methods found*, *noise/verbosity*, and
+*worked-as-documented ✓* entries (✓ is what promotes a skill example from
+`status: unverified` to verified), plus a short end-of-block retro line per skill used —
+see CLAUDE.md for the full taxonomy.
+
 Periodically, a hardening session in the **robium repo** (with the `skill-author` skill)
 absorbs these files: twice-seen learnings become skill edits + changelog lines; knowledge
-goes to the lowest skill that can hold it. Mark absorbed files by moving them to
-`learnings/absorbed/`.
+goes to the lowest skill that can hold it; absorbed entries get an inline
+`<!-- absorbed: YYYY-MM-DD -->` marker appended to their line.
 
 ## Layout
 
