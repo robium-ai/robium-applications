@@ -26,7 +26,8 @@ At the end of each work block (milestone or session), add one line per robium sk
 ## Two hats, one rule
 
 - **During a build**: use the skills as a client would. Do NOT edit robium's skills mid-build and do NOT quietly substitute your own knowledge — log the learning first, then proceed however the build needs.
-- **At session end**: when the user invokes the robium `skill-updater` skill (or asks to "update my skills" / "absorb these learnings"), harvest this session's learnings plus unabsorbed files and apply them to the robium source checkout (`~/repos/robium`) per that skill's workflow — this is the sanctioned exception to "don't edit mid-build," gated on explicit user invocation.
+- **Capture is automatic; absorption is never automatic.** NEVER edit robium's skills or invoke `skill-updater` on your own initiative. Instead, when a work block ends (or notable learnings have piled up), OFFER: present the skill-worthy candidates as a short list — `[target-skill] finding → smallest intended edit` — and ask "want me to run skill-updater with these?" The user is the editorial gate against skill bloat; items they don't approve stay in `learnings/` as notes, which is a fine permanent home.
+- **On explicit invocation only**: `skill-updater` (or "update my skills" / "absorb these learnings") applies the user-approved items to the robium source checkout (`~/repos/robium`) per that skill's workflow.
 - **Between builds**: fuller hardening sessions run in the **robium repo** with its `skill-author` skill (see its learnings-loop reference — it consumes these files, edits skills, promotes ✓-verified examples, prunes noise, then marks entries here with `<!-- absorbed: YYYY-MM-DD -->`).
 
 ## Building apps here
