@@ -1,0 +1,38 @@
+# All ROS nodes of a scenario run in ONE container (one `ros2 launch`):
+# DDS multicast does not cross Docker's bridge network, and network_mode:host
+# is not a real host namespace on Docker Desktop/macOS (robium integration
+# skill gotcha). Single-host sim demo => one supervisable unit per scenario.
+x-app: &app
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  image: nav-trial:latest
+  environment:
+    ROS_DOMAIN_ID: "42"
+    TURTLEBOT3_MODEL: burger
+
+services:
+  sim:
+    <<: *app
+    profiles: [sim]
+    ports: ["8765:8765"]
+    command: ros2 launch nav_trial_bringup sim.launch.py
+
+  slam:
+    <<: *app
+    profiles: [slam]
+    ports: ["8765:8765"]
+    volumes:
+      - ../src/nav_trial_bringup/maps:/ws/maps
+    command: bash /ws/scripts/run_slam.sh
+
+  nav:
+    <<: *app
+    profiles: [nav]
+    ports: ["8765:8765"]
+    command: ros2 launch nav_trial_bringup nav.launch.py
+
+  smoke:
+    <<: *app
+    profiles: [test]
+    command: bash /ws/scripts/run_smoke.sh

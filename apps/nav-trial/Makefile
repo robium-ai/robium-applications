@@ -3,7 +3,7 @@ COMPOSE = docker compose -f docker/compose.yaml
 .PHONY: build sim slam nav smoke check-map down
 
 build:
-	$(COMPOSE) build
+	$(COMPOSE) build sim
 
 sim:
 	$(COMPOSE) --profile sim up --abort-on-container-exit
