@@ -1,0 +1,25 @@
+# Python / uv
+.venv/
+__pycache__/
+*.egg-info/
+.uv-cache/
+
+# ROS 2 / colcon workspaces inside apps
+**/build/
+**/install/
+**/log/
+
+# ML runs and data (apps keep small configs in git, not artifacts)
+**/outputs/
+**/wandb/
+**/checkpoints/
+*.ckpt
+*.safetensors
+
+# Recordings
+*.mcap
+*.db3
+*.rrd
+
+# OS noise
+.DS_Store
