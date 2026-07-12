@@ -19,8 +19,15 @@ So the Nav2 servers are launched directly (same nodes/remappings as
 navigation_launch.py jazzy, minus route_server and docking_server which
 this app does not use) with our own lifecycle manager and
 `bond_timeout: 0.0` (bond checking off — Nav2's documented escape hatch
-for platforms with scheduling hiccups). respawn stays on per the nav2
-skill's iterate-with-standalone-nodes gotcha.
+for platforms with scheduling hiccups).
+
+Trade-off, stated honestly: with bonds off the lifecycle manager never
+notices a server crash, and although `respawn=True` restarts the
+process, a respawned lifecycle node comes back UNCONFIGURED and is never
+re-transitioned — so a real crash leaves the stack permanently wedged.
+The backstop is the scenario timeout in scripts/run_slam.sh
+(SLAM_TIMEOUT, default 900 s), which turns a wedged run into a bounded
+nonzero exit instead of a hang.
 """
 
 import os

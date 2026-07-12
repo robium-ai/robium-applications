@@ -9,7 +9,10 @@ mkdir -p /ws/maps
 ros2 launch nav_trial_bringup slam.launch.py &
 LAUNCH_PID=$!
 
-ros2 run nav_trial_bringup drive_mapping_route
+# Bounded: waitUntilNav2Active() inside the driver blocks forever if the
+# stack never comes up; without this every early failure mode is a hung
+# `make slam` with no exit code. On timeout RC=124 propagates.
+timeout "${SLAM_TIMEOUT:-900}" ros2 run nav_trial_bringup drive_mapping_route
 RC=$?
 
 # Bounded shutdown: gz teardown can hang headless; don't let it wedge the
