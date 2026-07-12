@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-The proving ground for the **robium** Claude Code plugin. Apps here are built *using* robium's skills — but the operator is robium's developer, not a client. Every session wears two hats: build the app honestly, and treat every skill interaction as QA data for the plugin. The learnings captured here are the primary product; the apps are the instrument. See README.md for trial pass bars and layout.
+The proving ground **and reference library** for the **robium** Claude Code plugin. Apps here are built *using* robium's skills — but the operator is robium's developer, not a client. Every session wears two hats: build the app honestly, and treat every skill interaction as QA data for the plugin. The learnings captured here are a primary product; the apps themselves are the second product — canonical, battle-tested samples that future applications reference or **bootstrap from**. Over time the repo grows toward covering the common combinations of robotics stacks. See README.md for trial pass bars and layout.
+
+## Registry (mandatory)
+
+`REGISTRY.md` at the repo root is the index of every app — stack, pass bar, what it can bootstrap, battle scars. Two rules:
+
+- **Read it first** when starting any new app: if an existing app resembles the target, bootstrap from it (copy its structure/env/test shape, then diverge) instead of scaffolding from scratch.
+- **Keep it current**: an app is not done until its registry card is added/updated (quick-index row + card, `verified` date = last smoke pass), in the same commit as the app change.
 
 ## Capture learnings as you work (mandatory)
 

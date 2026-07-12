@@ -1,12 +1,21 @@
 # robium-applications
 
-Proving ground for the [robium](https://github.com/jazarium/robium-docs) Claude Code plugin.
-Real robotics applications are built here **using robium's skills**, serving three purposes:
+Proving ground **and reference library** for the [robium](https://github.com/jazarium/robium-docs)
+Claude Code plugin. Real robotics applications are built here **using robium's skills**,
+serving four purposes:
 
 1. **Trial runs** that harden the skills — stumbles are captured, not papered over.
 2. A living, test-driven regression suite: every app stays maintained and running.
 3. Canonical samples the robium skills reference (verified examples get promoted from
    `status: unverified` after passing here).
+4. **Bootstrap material**: when a future application resembles an existing app here,
+   start from that app — its structure, env, tests, and encoded battle scars — instead
+   of from scratch. Over time this repo grows toward covering the common *combinations*
+   of robotics applications (nav × sim × viz × learning stacks), each battle-tested.
+
+**Start at [REGISTRY.md](REGISTRY.md)** — the index of what exists, what stack each app
+proves, and what each can bootstrap. An app is not done until its registry card is
+added/updated in the same commit.
 
 ## How to build an app here
 
