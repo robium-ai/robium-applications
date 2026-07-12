@@ -10,3 +10,9 @@ browser Foxglove at ws://localhost:8765.
 - `make slam` — SLAM run: drives a route, saves the map (M2)
 - `make nav` — navigation on the saved map (M3)
 - `make smoke` — the one-command pass bar
+
+## Visualization
+
+With any profile running: open https://app.foxglove.dev (or Lichtblick),
+"Open connection" → `ws://localhost:8765`. Live topics: /scan, /tf, /map
+(during SLAM/nav), /plan, costmaps.
