@@ -35,4 +35,9 @@ services:
   smoke:
     <<: *app
     profiles: [test]
+    environment:
+      ROS_DOMAIN_ID: "42"
+      TURTLEBOT3_MODEL: burger
+      # Host-overridable outer/inner smoke bound (see scripts/run_smoke.sh).
+      SMOKE_TIMEOUT: "${SMOKE_TIMEOUT:-180}"
     command: bash /ws/scripts/run_smoke.sh
