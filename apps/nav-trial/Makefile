@@ -1,6 +1,6 @@
 COMPOSE = docker compose -f docker/compose.yaml
 
-.PHONY: build sim slam nav smoke check-map down
+.PHONY: build sim slam nav demo demo-smoke smoke check-map down
 
 build:
 	$(COMPOSE) build sim
@@ -13,6 +13,9 @@ slam:
 
 nav:
 	$(COMPOSE) --profile nav up --abort-on-container-exit
+
+demo:
+	$(COMPOSE) --profile demo up --abort-on-container-exit
 
 smoke:
 	$(COMPOSE) --profile test up --build --abort-on-container-exit --exit-code-from smoke

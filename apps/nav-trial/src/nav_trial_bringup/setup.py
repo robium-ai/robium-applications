@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'drive_mapping_route = nav_trial_bringup.drive_mapping_route:main',
             'send_goals = nav_trial_bringup.send_goals:main',
+            'demo_init = nav_trial_bringup.demo_init:main',
         ],
     },
 )

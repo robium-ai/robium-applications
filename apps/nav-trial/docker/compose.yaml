@@ -32,6 +32,12 @@ services:
     ports: ["8765:8765"]
     command: ros2 launch nav_trial_bringup nav.launch.py
 
+  demo:
+    <<: *app
+    profiles: [demo]
+    ports: ["8765:8765"]
+    command: ros2 launch nav_trial_bringup demo.launch.py
+
   smoke:
     <<: *app
     profiles: [test]
