@@ -1,6 +1,6 @@
 # Architecture Brief — nav-trial
 
-**Date:** 2026-07-10   **Status:** draft
+**Date:** 2026-07-10   **Status:** implemented (2026-07-11)
 **Author:** robium-architect subagent
 
 ## 1. Requirements
@@ -46,23 +46,48 @@ apps/nav-trial/
 ├── docs/architecture-brief.md        # this file
 ├── docker/
 │   ├── Dockerfile                    # ros:jazzy + turtlebot3*, nav2, slam_toolbox, foxglove_bridge, gz-harmonic (via ros_gz)
-│   └── compose.yaml                  # services/profiles: sim | slam | nav | foxglove; smoke-test profile
+│   ├── compose.yaml                  # profiles: sim | slam | nav | test (one container per scenario)
+│   └── entrypoint.sh                 # sources ROS + workspace, then exec
+├── scripts/
+│   ├── run_slam.sh                   # slam scenario wrapper: launch in bg + outer `timeout` around the driver
+│   └── run_smoke.sh                  # smoke wrapper: same shape, outer `timeout -k 10 ${SMOKE_TIMEOUT:-180}`
 ├── src/
 │   └── nav_trial_bringup/            # the one app package
 │       ├── launch/
-│       │   ├── sim.launch.py         # gz server (headless) + TB3 spawn + ros_gz bridge + foxglove_bridge
-│       │   ├── slam.launch.py        # sim + slam_toolbox (online_async) + scripted driver
-│       │   └── nav.launch.py         # sim + map_server(saved map) + AMCL + Nav2 servers
-│       ├── config/                   # nav2_params.yaml, slam_params.yaml (start from turtlebot3_navigation2 burger params)
+│       │   ├── sim.launch.py         # ros_gz_sim gz_sim.launch.py (headless args) + upstream spawn/rsp includes + foxglove_bridge
+│       │   ├── slam.launch.py        # sim + slam_toolbox (online_async) + Nav2 servers launched DIRECTLY
+│       │   └── nav.launch.py         # sim + map_server(saved map) + AMCL + Nav2 servers launched DIRECTLY
+│       ├── config/                   # nav2_params.yaml (TB3 burger.yaml base + grafted smoother_server), slam_params.yaml
 │       ├── maps/                     # saved map (map.pgm + map.yaml) — committed
-│       └── scripts/
-│           ├── drive_mapping_route.py  # scripted cmd_vel/waypoint route for the SLAM run
+│       └── nav_trial_bringup/        # package module (ros2 run entry points)
+│           ├── drive_mapping_route.py  # scripted waypoint route for the SLAM run
 │           └── send_goals.py           # nav2_simple_commander goal sender (shared with smoke test)
 ├── tests/
 │   ├── smoke_nav.py                  # the pass bar (see §6/§7)
-│   └── check_map.py                  # SLAM check: map exists + non-trivial
+│   ├── check_map.py                  # SLAM check: map exists + non-trivial
+│   └── check_scan.py                 # R1 de-risk probe: /scan publishing
+├── Makefile                          # build | sim | slam | nav | smoke | check-map | down
 └── README.md
 ```
+
+**Launch composition as built (changed from draft).** Upstream
+`turtlebot3_world.launch.py` is NOT headless-usable as an include — it
+hardcodes a gz GUI client and non-overridable server `gz_args` — so
+`sim.launch.py` composes `ros_gz_sim/gz_sim.launch.py` directly with headless
+args (`-r -s --headless-rendering`) plus the upstream `spawn_turtlebot3` /
+`robot_state_publisher` sub-launch includes, which are cleanly reusable.
+`slam.launch.py`/`nav.launch.py` launch the Nav2 servers DIRECTLY
+(`ParameterFile(allow_substs=True)`, own lifecycle manager with
+`bond_timeout: 0.0`, standalone nodes + respawn) instead of including
+nav2_bringup — three live-hit reasons: Jazzy `slam:=True` starts a duplicate
+(sync) slam_toolbox; `navigation_launch.py` hard-codes lifecycle-manager
+params so `bond_timeout` can't be set (Docker stall spikes then kill the
+stack); and TB3's `$(find-pkg-share)` param substitutions break without
+`allow_substs=True`. Scenario scripts `run_slam.sh`/`run_smoke.sh` wrap each
+run with an outer `timeout` so no failure mode is an unbounded hang.
+Params: `config/nav2_params.yaml` base is the shipped TB3
+`turtlebot3_navigation2` burger.yaml with `smoother_server` grafted in and
+`enable_stamped_cmd_vel: true` in all five cmd_vel-publishing sections.
 
 Responsibilities:
 - **Upstream (apt):** robot model/URDF (`turtlebot3_description`), sim worlds/models
@@ -80,7 +105,7 @@ Single robot, single host — short plan. Key ROS 2 interfaces (all bridged from
 | Interface | Type | Rate | Notes |
 |---|---|---|---|
 | `/scan` | `sensor_msgs/LaserScan` | ~5 Hz (TB3 LDS, 360 samples) | From gz `gpu_lidar` → needs a render engine even headless (see §8 R1) |
-| `/cmd_vel` | `geometry_msgs/TwistStamped` (verify) | controller rate | TB3 Jazzy sim expects **TwistStamped**; Nav2's stamped-vs-unstamped output (`enable_stamped_cmd_vel`) must be aligned at integration — see §8 R3 |
+| `/cmd_vel` | `geometry_msgs/TwistStamped` | controller rate | **Confirmed at runtime** (bridge yaml bridges TwistStamped; manual odom drive test + full Nav2 run): TB3 Jazzy sim takes TwistStamped only; Nav2 aligned via `enable_stamped_cmd_vel: true` — §8 R3 closed |
 | `/odom`, `/tf`, `/tf_static` | nav_msgs/Odometry, tf2 | ~30 Hz | odom + `map→odom` from slam_toolbox (mapping) or AMCL (nav) |
 | `/map` | `nav_msgs/OccupancyGrid` | latched/1 Hz | slam_toolbox during mapping; `map_server` during nav |
 | `navigate_to_pose` | Nav2 action | on demand | driven by `send_goals.py` / smoke test via `nav2_simple_commander` |
@@ -114,6 +139,10 @@ Non-learning app — short plan.
 - **The saved map is the app's one data artifact**: produced by the SLAM milestone
   (`map_saver_cli`), committed at `src/nav_trial_bringup/maps/` (pgm+yaml, ~KBs), consumed
   by the nav milestone and the smoke test. Regenerating it is a documented one-command run.
+- **Map-frame convention:** slam_toolbox sets the `map` origin at the robot's *starting pose*,
+  not the Gazebo world origin — spawn at world (-2.0, -0.5) means world (-2.0, -0.5) = map
+  (0, 0). The saved map inherits this origin, so all nav goals (send_goals.py, smoke test)
+  are map-frame coordinates: `goal_map = goal_world - spawn_pose`.
 - **Rosbags/logs** (debug recordings, Foxglove captures): gitignored under `apps/nav-trial/bags/`.
 - No datasets, no Hub pulls/pushes — `data`/`huggingface` skills not in the routing table.
 
@@ -138,7 +167,7 @@ timeout sized to the measured real-time factor (R2), exits nonzero on failure.
 **SLAM check** (lighter): map yaml+pgm exist; occupied and free cell counts above thresholds
 (rejects an empty/degenerate map).
 
-## 8. Open risks
+## 8. Risks (with outcomes at implementation, 2026-07-11)
 
 1. **R1 — Headless GPU-less lidar rendering (top risk).** Gazebo's lidar is a `gpu_lidar`
    render-based sensor; even `gz sim -s` needs a working render engine (OGRE2 via
@@ -147,20 +176,32 @@ timeout sized to the measured real-time factor (R2), exits nonzero on failure.
    no SLAM, no nav). *De-risk:* first task of M1 — assert `/scan` publishes; TB3's lidar is
    tiny (360 samples @ 5 Hz) so llvmpipe should cope; fallbacks: reduce samples/rate, pin
    mesa version, or (last resort) a remote Linux box.
+   **CLOSED:** llvmpipe/EGL headless lidar rendered on the first try (`/scan` publishing,
+   zero OGRE2/EGL errors); none of the fallback rungs were needed.
 2. **R2 — Real-time factor under software rendering + Docker-on-macOS VM.** Sim may run
    well below 1.0 RTF. *Blocks:* smoke-test reliability (flaky timeouts). *De-risk:* measure
    RTF at M1; size all test timeouts from sim time, not wall time, where possible.
+   **CLOSED:** measured RTF ≈ 0.99 in Docker-on-macOS (essentially real time); smoke
+   timeout sized 180 s = ~90 s sim × 2 margin (`SMOKE_TIMEOUT` overridable).
 3. **R3 — `/cmd_vel` Twist vs TwistStamped mismatch.** TB3's Jazzy Gazebo integration
    expects `TwistStamped`; Nav2's stamped-output default on Jazzy must be checked and
    aligned (`enable_stamped_cmd_vel` or a relay). *Blocks:* M3 (robot ignores commands).
    *De-risk:* verify at integration; it's a one-param or one-relay fix.
+   **CLOSED:** TwistStamped confirmed at runtime (bridge type + odom drive test);
+   `enable_stamped_cmd_vel: true` set in all five cmd_vel sections; robot navigates
+   end-to-end under Nav2.
 4. **R4 — arm64 apt coverage assumed per-package.** Buildfarm arm64/Noble coverage is the
    norm and `turtlebot3_gazebo`/`slam_toolbox`/`foxglove_bridge` Jazzy releases are
    confirmed, but each package's arm64 build wasn't individually verified. *Blocks:* env
    setup. *De-risk:* the Dockerfile build itself is the check; source-build any straggler.
+   **CLOSED:** arm64 apt coverage complete — every package installed from stock
+   packages.ros.org/ports.ubuntu.com; no OSRF repo or source builds needed.
 5. **R5 — Foxglove web-app account/terms.** `foxglove_bridge` is MIT, but the browser app
    requires a Foxglove account (free individual tier). *Blocks:* nothing functional (viz
    only). *De-risk:* Lichtblick (open-source, same WebSocket protocol) as drop-in fallback.
+   **MITIGATED:** user verified app.foxglove.dev with a free account against the live
+   bridge; Lichtblick remains the untested fallback.
 6. **R6 — Jazzy is a dead end for Nav2's next major.** Nav2's Lyrical release lands with a
    large refactor/user migration; this app pins Jazzy (supported to May 2029) and does not
    attempt forward-compat. *Blocks:* nothing now; a future distro bump is a real migration.
+   **OPEN (unchanged):** accepted; a future migration when Nav2's Lyrical line stabilizes.
