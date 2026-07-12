@@ -433,7 +433,11 @@ collision_monitor:
         theta_max: 1.0
     observation_sources: ["scan"]
     scan:
-      source_timeout: 0.2
+      # TB3 upstream ships 0.2 here, but the burger lidar publishes at 5 Hz
+      # (0.2 s period), so the newest scan is perpetually "stale" and the
+      # collision monitor zeroes cmd_vel ("Robot to stop due to invalid
+      # source", observed live). One full second tolerates sim jitter.
+      source_timeout: 1.0
       type: "scan"
       topic: "/scan"
       enabled: true
