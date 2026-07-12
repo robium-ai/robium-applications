@@ -16,6 +16,11 @@ browser Foxglove at ws://localhost:8765.
   runs the nav scenario + goal client, exits 0 on success)
 - `make check-map` — host-side map sanity check (`tests/check_map.py`)
 - `make down` — tear down all profiles' containers
+- `make demo` — the live-demo scenario (nav stack + auto initial pose +
+  Foxglove bridge); `make demo-smoke` gates it. `make demo-image` +
+  `make demo-deploy` push it to Cloud Run (`demo-nav-trial`, robium-prod,
+  per-visitor instances via concurrency=1, GZ_RELAY unicast discovery)
+  where robium.org/demos/nav-trial hands each visitor a private instance.
 
 Map regeneration: `make slam` rewrites `src/nav_trial_bringup/maps/`
 (map.pgm + map.yaml) via the compose volume mount; the next image build

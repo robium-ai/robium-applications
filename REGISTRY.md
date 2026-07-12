@@ -41,6 +41,9 @@ the map, Nav2 drives goals on it — fully headless in Docker on a macOS host.
 - **Bootstrap for:** any ROS 2 + Nav2 + Gazebo mobile-robot app; headless
   Gazebo in Docker (esp. Apple Silicon); compose-profile scenario layouts;
   Foxglove remote viz with a committed layout; SLAM→saved-map→AMCL flows.
+- **Live demo:** Cloud Run `demo-nav-trial` (per-visitor instances,
+  scale-to-zero, `GZ_RELAY=127.0.0.1` for multicast-less gz discovery)
+  behind robium.org/demos/nav-trial — `make demo-deploy`.
 - **Battle scars encoded:** TwistStamped alignment, collision_monitor
   source_timeout, SLAM map-origin-at-start, ParameterFile(allow_substs),
   bringup-abort recovery — see `learnings/2026-07-10.md` and the brief §8.

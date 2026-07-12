@@ -7,7 +7,7 @@
 # against ros-jazzy-foxglove-bridge 3.4.1 by grepping libfoxglove.so).
 set -uo pipefail
 BASE="${1:?usage: check_ws.sh <base-url>}"
-RESP=$(curl -s -i -N --max-time 15 \
+RESP=$(curl -s -i -N --http1.1 --max-time 15 \
   -H "Connection: Upgrade" -H "Upgrade: websocket" \
   -H "Sec-WebSocket-Version: 13" \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \

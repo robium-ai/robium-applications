@@ -1,6 +1,6 @@
 COMPOSE = docker compose -f docker/compose.yaml
 
-.PHONY: build sim slam nav demo demo-smoke smoke check-map down
+.PHONY: build sim slam nav demo demo-smoke demo-image demo-deploy smoke check-map down
 
 build:
 	$(COMPOSE) build sim
@@ -33,6 +33,25 @@ demo-smoke:
 
 smoke:
 	$(COMPOSE) --profile test up --build --abort-on-container-exit --exit-code-from smoke
+
+# --- live demo on Cloud Run (per-visitor instances; see robium.org spec) ---
+DEMO_IMAGE = us-central1-docker.pkg.dev/robium-prod/robium/demo-nav-trial:latest
+
+demo-image:
+	gcloud builds submit --project=robium-prod --config=cloudbuild.yaml .
+
+demo-deploy:
+	gcloud run deploy demo-nav-trial --image=$(DEMO_IMAGE) \
+	  --region=us-central1 --project=robium-prod --platform=managed \
+	  --port=8765 --concurrency=1 --min-instances=0 --max-instances=5 \
+	  --timeout=1800 --cpu=4 --memory=4Gi --cpu-boost \
+	  --execution-environment=gen2 \
+	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1 \
+	  --command=/entrypoint.sh --args="ros2,launch,nav_trial_bringup,demo.launch.py" \
+	  --allow-unauthenticated --quiet
+# GZ_RELAY/GZ_IP: gz-transport discovery is UDP-multicast-based and Cloud Run
+# has no multicast — without the unicast loopback relay, gz server is
+# undiscoverable and spawn/bridge wait forever (verified 2026-07-12).
 
 check-map:
 	python3 tests/check_map.py src/nav_trial_bringup/maps/map.yaml
