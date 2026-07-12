@@ -1,0 +1,76 @@
+{
+  "configById": {
+    "3D!navtrial": {
+      "cameraState": {
+        "perspective": false,
+        "distance": 8,
+        "targetOffset": [1.5, 0, 0],
+        "thetaOffset": 0,
+        "phi": 60,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "followTf": "map",
+      "scene": {
+        "transforms": {
+          "showLabel": false
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/map": {
+          "visible": true,
+          "colorMode": "map"
+        },
+        "/scan": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "flat",
+          "flatColor": "#e04040",
+          "pointSize": 4
+        },
+        "/plan": {
+          "visible": true,
+          "lineWidth": 0.05,
+          "gradient": ["#00e04d", "#00e04d"]
+        },
+        "/global_costmap/costmap": {
+          "visible": true,
+          "colorMode": "costmap",
+          "alpha": 0.35
+        },
+        "/local_costmap/costmap": {
+          "visible": false
+        },
+        "/robot_description": {
+          "visible": true
+        }
+      },
+      "publish": {
+        "type": "pose",
+        "poseTopic": "/goal_pose",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26
+      }
+    },
+    "RawMessages!goalecho": {
+      "topicPath": "/goal_pose"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!navtrial",
+    "second": "RawMessages!goalecho",
+    "splitPercentage": 80
+  }
+}

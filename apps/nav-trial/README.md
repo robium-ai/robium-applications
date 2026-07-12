@@ -33,3 +33,10 @@ With any profile running: open https://app.foxglove.dev (or Lichtblick),
 "Open connection" → `ws://localhost:8765`. Live topics: /scan, /tf, /map
 (during SLAM/nav), /plan, costmaps. Note: nav goals are map-frame — the
 SLAM map origin is the robot's start pose, so world (-2.0, -0.5) = map (0, 0).
+
+### Preconfigured layout
+
+Import `foxglove/nav-trial-layout.json` once (Foxglove: **Layout menu → Import from file…**).
+It sets display frame `map`, shows /map, /scan, /plan and the global costmap, and points the
+Publish tool at Nav2's `/goal_pose` (initial pose → `/initialpose`). After importing it's saved
+in your Foxglove account. Use Chrome — Safari blocks ws://localhost from the https app.
