@@ -16,8 +16,11 @@ Append a bullet to `learnings/YYYY-MM-DD.md` **at the moment an event happens** 
 - **Better method found** — the skill's way worked, but you found a superior approach (simpler command, newer API, cleaner pattern). Robium's bar is best-known-method; capture upgrades even when nothing broke.
 - **Noise/verbosity** — the answer existed but was buried; prose that should be a table; duplication. Feeds the hardening prune pass.
 - **Worked as documented ✓** — a non-trivial snippet/example ran exactly as written. Name the file/section; ✓ entries are the only evidence that promotes `status: unverified` examples to verified.
+- **User-corrected approach** — the user overrode or corrected a skill-guided approach mid-session. Record the exact correction and what the skill had suggested; a correction is the strongest single-observation signal that guidance and reality disagree.
 
 Good entry: names the skill (or "none"), what was expected, what happened, and — if known — the fix. "nav2 was confusing" is useless; "nav2 Quick start costmap YAML omits the inflation_layer block → robot hugged obstacles" is actionable.
+
+**Evidence bar (write entries that can be absorbed):** where they exist, capture (1) the passing check that verified the fix, (2) the exact error/symptom verbatim, and (3) the dead-ends ruled out and why — absorption holds new knowledge to this three-part bar; an entry missing a part waits in learnings/ as tentative until the evidence shows up. Append a `(seen 2x)` count when the same friction re-hits — recurrence is the strongest promotion signal. Project-local facts (this app's port, this repo's path) go to the app's README/brief, not learnings/.
 
 ## End-of-block retro (mandatory)
 
