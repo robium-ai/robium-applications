@@ -83,12 +83,21 @@ async def handle(reader, writer):
     is_upgrade = 'upgrade: websocket' in head.lower()
 
     if is_upgrade:
+        # One session per instance lifetime: the first ws claims; later ws
+        # connections must carry the SAME session (viewer auto-reconnects),
+        # anything else is another visitor -> busy (their retry gets a fresh
+        # instance). Prevents session hijack during boot-retry gaps.
         if state['tunnel_open']:
             writer.write(http_response('503 Busy', json.dumps({'error': 'busy'})))
             await writer.drain()
             writer.close()
             return
-        state['session'] = session or state['session'] or 'anonymous'
+        if state['session'] is not None and session != state['session']:
+            writer.write(http_response('503 Busy', json.dumps({'error': 'claimed'})))
+            await writer.drain()
+            writer.close()
+            return
+        state['session'] = session or 'anonymous'
         state['tunnel_open'] = True
         state['claimed_at'] = state['claimed_at'] or time.time()
         try:

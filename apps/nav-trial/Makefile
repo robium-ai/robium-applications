@@ -50,9 +50,9 @@ demo-deploy:
 	gcloud run deploy demo-nav-trial --image=$(DEMO_IMAGE) \
 	  --region=us-central1 --project=robium-prod --platform=managed \
 	  --port=8765 --concurrency=4 --session-affinity --min-instances=0 --max-instances=5 \
-	  --timeout=1800 --cpu=4 --memory=4Gi --cpu-boost \
+	  --timeout=1800 --cpu=8 --memory=8Gi --cpu-boost \
 	  --execution-environment=gen2 \
-	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1 \
+	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1,FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \
 	  --command=/entrypoint.sh --args="ros2,launch,nav_trial_bringup,demo.launch.py" \
 	  --allow-unauthenticated --quiet
 # GZ_RELAY/GZ_IP: gz-transport discovery is UDP-multicast-based and Cloud Run

@@ -6,17 +6,25 @@ writes /tmp/demo_status.json every 2 s for the gateway's /status endpoint.
 """
 import json
 import os
+import signal
 import time
 
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav2_simple_commander.robot_navigator import BasicNavigator
+from nav_msgs.msg import Odometry
 from rcl_interfaces.msg import Log
 
 INITIAL_POSE = (0.0, 0.0)  # map frame == SLAM start == world (-2.0, -0.5)
 STATUS_PATH = '/tmp/demo_status.json'
 LOG_KEEP = 40
 START = time.time()
+# Boot watchdog: gz-transport discovery over GZ_RELAY loses a sticky
+# per-boot race on Cloud Run (no multicast) roughly half the time — when
+# lost, gz topics (odom/scan) never arrive and the stack can never become
+# ready. Detect it and exit cleanly (SIGINT to PID 1): Cloud Run starts a
+# fresh instance on the viewer's auto-reconnect, re-rolling the race.
+ODOM_DEADLINE_S = 120.0
 
 
 def write_status(nav, ready, rtf, log_ring):
@@ -44,7 +52,30 @@ def main():
 
     nav.create_subscription(Log, '/rosout', on_log, 10)
 
+    odom_seen = {'ok': False}
+
+    def on_odom(_msg):
+        odom_seen['ok'] = True
+
+    nav.create_subscription(Odometry, '/odom', on_odom, 10)
+
     write_status(nav, False, None, log_ring)
+
+    # Watchdog: no /odom => the gz side lost its discovery race; restart.
+    deadline = time.monotonic() + ODOM_DEADLINE_S
+    while not odom_seen['ok']:
+        rclpy.spin_once(nav, timeout_sec=0.5)
+        if time.monotonic() > deadline:
+            log_ring.append('[demo_init] BOOT RETRY: sim topics never arrived '
+                            '(gz discovery race) — restarting instance')
+            write_status(nav, False, None, log_ring)
+            print('DEMO BOOT RETRY: no /odom within deadline, restarting',
+                  flush=True)
+            time.sleep(0.5)
+            os.kill(1, signal.SIGINT)
+            time.sleep(30)
+            return 1
+
     pose = PoseStamped()
     pose.header.frame_id = 'map'
     pose.header.stamp = nav.get_clock().now().to_msg()
