@@ -32,6 +32,11 @@ demo-smoke:
 	curl -sf "http://localhost:8765/status?session=smoke"
 	test "$$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8765/status?session=intruder")" = "409"
 	test "$$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://localhost:8765/shutdown?session=intruder")" = "403"
+	python3 tests/pty_probe.py localhost smoke
+	curl -sf "http://localhost:8765/fs/list?session=smoke&path=src" | grep -q nav_trial_bringup
+	curl -sf "http://localhost:8765/fs/write?session=smoke&path=robium_demo_t.txt" --data "hello-fs" | grep -q '"ok": true'
+	curl -sf "http://localhost:8765/fs/read?session=smoke&path=robium_demo_t.txt" | grep -q hello-fs
+	test "$$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8765/fs/read?session=smoke&path=../../etc/passwd")" = "400"
 	$(COMPOSE) exec demo /entrypoint.sh ros2 run nav_trial_bringup send_goals --goals "0.3,0.5" --timeout 120
 	curl -s -X POST "http://localhost:8765/shutdown?session=smoke" | grep -q bye
 	n=0; until [ -z "$$($(COMPOSE) ps -q demo)" ] || [ "$$(docker inspect -f '{{.State.Running}}' $$($(COMPOSE) ps -q demo) 2>/dev/null)" != "true" ]; do \
@@ -54,6 +59,8 @@ demo-deploy:
 	  --port=8765 --concurrency=4 --session-affinity --min-instances=0 --max-instances=5 \
 	  --timeout=1800 --cpu=8 --memory=8Gi --cpu-boost --no-cpu-throttling \
 	  --execution-environment=gen2 \
+	  --service-account=demo-nav-trial-sa@robium-prod.iam.gserviceaccount.com \
+	  --network=demo-net --subnet=demo-subnet --vpc-egress=all-traffic \
 	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1,FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \
 	  --command=/entrypoint.sh --args="ros2,launch,nav_trial_bringup,demo.launch.py" \
 	  --allow-unauthenticated --quiet
