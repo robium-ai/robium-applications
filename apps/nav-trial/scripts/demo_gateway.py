@@ -83,20 +83,18 @@ async def handle(reader, writer):
     is_upgrade = 'upgrade: websocket' in head.lower()
 
     if is_upgrade:
-        # One session per instance lifetime: the first ws claims; later ws
-        # connections must carry the SAME session (viewer auto-reconnects),
-        # anything else is another visitor -> busy (their retry gets a fresh
-        # instance). Prevents session hijack during boot-retry gaps.
+        # A claim is sacred only while its tunnel is LIVE: a concurrent ws
+        # from any session -> 503 (hijack guard; that visitor's retry gets a
+        # fresh instance). With no live tunnel, a new session may take over
+        # the claim — this is the page-reload path (new UUID + affinity
+        # cookie routes to the old, already-booted instance: instant ready).
         if state['tunnel_open']:
             writer.write(http_response('503 Busy', json.dumps({'error': 'busy'})))
             await writer.drain()
             writer.close()
             return
-        if state['session'] is not None and session != state['session']:
-            writer.write(http_response('503 Busy', json.dumps({'error': 'claimed'})))
-            await writer.drain()
-            writer.close()
-            return
+        if session != state['session']:
+            state['claimed_at'] = time.time()  # new visitor: fresh clock
         state['session'] = session or 'anonymous'
         state['tunnel_open'] = True
         state['claimed_at'] = state['claimed_at'] or time.time()
