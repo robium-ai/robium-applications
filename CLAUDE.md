@@ -6,6 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The proving ground **and reference library** for the **robium** Claude Code plugin. Apps here are built *using* robium's skills — but the operator is robium's developer, not a client. Every session wears two hats: build the app honestly, and treat every skill interaction as QA data for the plugin. The learnings captured here are a primary product; the apps themselves are the second product — canonical, battle-tested samples that future applications reference or **bootstrap from**. Over time the repo grows toward covering the common combinations of robotics stacks. See README.md for trial pass bars and layout.
 
+## Sibling repos — anchor the session in the repo that owns the output
+
+Three repos are worked on together and sit side by side under `~/repos/`:
+**robium** (the plugin: skills, agents, its own STRICT skill-update policy),
+**robium-applications** (this one: apps + learnings), and **robium.org** (landing
+site + live-demo orchestrator). `.claude/settings.json` here puts the other two on
+`additionalDirectories`, so they are readable and writable from this session — but
+**launch Claude in the repo whose output you are producing**, because the launch
+directory is what selects the operating mode (this file's two-hats rule only loads
+when this repo is the anchor, and git branch/status in the prompt track it too).
+
+- Building or QA'ing an app → anchor here.
+- Hardening/absorbing skills → anchor in `robium` (that is where `skill-author` and
+  the archive/version rules live).
+- Site or demo infrastructure → anchor in `robium.org`.
+
+Writes to `robium/skills/**` from this repo are gated by an `ask` permission rule —
+a deliberate speed bump for the two-hats rule below. It is not a hard block: an
+explicit, user-invoked `skill-updater` run still works, it just has to be confirmed.
+
 ## Registry (mandatory)
 
 `REGISTRY.md` at the repo root is the index of every app — stack, pass bar, what it can bootstrap, battle scars. Two rules:

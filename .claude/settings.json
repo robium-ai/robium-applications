@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "../robium",
+      "../robium.org"
+    ],
+    "ask": [
+      "Edit(~/repos/robium/skills/**)",
+      "Write(~/repos/robium/skills/**)",
+      "Edit(../robium/skills/**)",
+      "Write(../robium/skills/**)"
+    ]
+  }
+}
