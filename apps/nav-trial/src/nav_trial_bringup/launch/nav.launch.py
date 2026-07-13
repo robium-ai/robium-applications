@@ -20,8 +20,10 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterFile
 
@@ -37,8 +39,10 @@ def generate_launch_description():
     map_yaml = os.path.join(pkg, 'maps', 'map.yaml')
     remappings = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
 
+    bridge_port = DeclareLaunchArgument('bridge_port', default_value='8765')
     sim = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(pkg, 'launch', 'sim.launch.py')))
+        PythonLaunchDescriptionSource(os.path.join(pkg, 'launch', 'sim.launch.py')),
+        launch_arguments={'bridge_port': LaunchConfiguration('bridge_port')}.items())
 
     def server(package, executable, name, extra_remaps=(), extra_params=()):
         return Node(
@@ -89,4 +93,4 @@ def generate_launch_description():
             }]),
     ]
 
-    return LaunchDescription([sim] + nav2_nodes)
+    return LaunchDescription([bridge_port, sim] + nav2_nodes)

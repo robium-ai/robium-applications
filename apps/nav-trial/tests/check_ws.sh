@@ -12,7 +12,7 @@ RESP=$(curl -s -i -N --http1.1 --max-time 15 \
   -H "Sec-WebSocket-Version: 13" \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
   -H "Sec-WebSocket-Protocol: foxglove.sdk.v1" \
-  "$BASE" | head -5)
+  "$BASE/?session=${2:-smoke}" | head -5)
 echo "$RESP" | head -1
 if echo "$RESP" | head -1 | grep -q " 101 "; then
   echo "WS HANDSHAKE OK"

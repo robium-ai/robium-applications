@@ -17,17 +17,23 @@ nav:
 demo:
 	$(COMPOSE) --profile demo up --abort-on-container-exit
 
-# Demo gate: boot the demo scenario, assert the Foxglove WebSocket answers,
-# the stack reaches DEMO READY, and one nav goal succeeds. Exit code gated.
+# Demo gate: boot the demo scenario, assert the gateway tunnels the Foxglove
+# WebSocket, /status reaches ready, session guards hold (409/403 for
+# intruders), one nav goal succeeds, and /shutdown kills the container.
 # (Bounded shell loops, not timeout(1) — absent on macOS hosts.)
 demo-smoke:
 	$(COMPOSE) --profile demo up --build -d demo
 	n=0; until bash tests/check_ws.sh http://localhost:8765; do \
 	  n=$$((n+1)); [ $$n -ge 20 ] && echo "WS TIMEOUT" && exit 1; sleep 3; done
-	n=0; until $(COMPOSE) logs demo | grep -q "DEMO READY"; do \
+	n=0; until curl -sf "http://localhost:8765/status?session=smoke" | grep -q '"ready": *true'; do \
 	  n=$$((n+1)); [ $$n -ge 48 ] && echo "READY TIMEOUT" && exit 1; sleep 5; done
-	$(COMPOSE) logs demo | grep "DEMO READY"
+	curl -sf "http://localhost:8765/status?session=smoke"
+	test "$$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8765/status?session=intruder")" = "409"
+	test "$$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://localhost:8765/shutdown?session=intruder")" = "403"
 	$(COMPOSE) exec demo /entrypoint.sh ros2 run nav_trial_bringup send_goals --goals "0.3,0.5" --timeout 120
+	curl -s -X POST "http://localhost:8765/shutdown?session=smoke" | grep -q bye
+	n=0; until [ -z "$$($(COMPOSE) ps -q demo)" ] || [ "$$(docker inspect -f '{{.State.Running}}' $$($(COMPOSE) ps -q demo) 2>/dev/null)" != "true" ]; do \
+	  n=$$((n+1)); [ $$n -ge 10 ] && echo "SHUTDOWN TIMEOUT" && exit 1; sleep 2; done
 	$(COMPOSE) --profile "*" down --remove-orphans
 	@echo "DEMO SMOKE PASS"
 
