@@ -49,7 +49,7 @@ demo-image:
 demo-deploy:
 	gcloud run deploy demo-nav-trial --image=$(DEMO_IMAGE) \
 	  --region=us-central1 --project=robium-prod --platform=managed \
-	  --port=8765 --concurrency=1 --min-instances=0 --max-instances=5 \
+	  --port=8765 --concurrency=4 --session-affinity --min-instances=0 --max-instances=5 \
 	  --timeout=1800 --cpu=4 --memory=4Gi --cpu-boost \
 	  --execution-environment=gen2 \
 	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1 \

@@ -29,8 +29,13 @@ state = {'session': None, 'tunnel_open': False, 'claimed_at': None}
 
 
 def http_response(status, body, extra=''):
+    # Connection: close is load-bearing behind Cloud Run's proxy: it pools
+    # keep-alive connections to the instance, and closing the socket after a
+    # response without declaring it surfaces as "malformed HTTP response"
+    # 503s at the edge (verified 2026-07-13).
     return (f'HTTP/1.1 {status}\r\nContent-Type: application/json\r\n'
             f'Content-Length: {len(body)}\r\nAccess-Control-Allow-Origin: *\r\n'
+            f'Connection: close\r\n'
             f'{extra}\r\n{body}').encode()
 
 
