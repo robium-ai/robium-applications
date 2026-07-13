@@ -7,12 +7,17 @@ passes it so a reachable internet = hard failure.
 import asyncio
 import base64
 import os
+import ssl
 import sys
 
 
 async def main(host, session, expect_blocked):
     hostname, _, port = host.partition(':')
-    reader, writer = await asyncio.open_connection(hostname, int(port or '8765'))
+    if port:  # explicit port → local plaintext container
+        reader, writer = await asyncio.open_connection(hostname, int(port))
+    else:     # bare host → cloud, TLS on 443
+        ctx = ssl.create_default_context()
+        reader, writer = await asyncio.open_connection(hostname, 443, ssl=ctx)
     key = base64.b64encode(os.urandom(16)).decode()
     writer.write((f'GET /pty?session={session} HTTP/1.1\r\nHost: {host}\r\n'
                   f'Upgrade: websocket\r\nConnection: Upgrade\r\n'

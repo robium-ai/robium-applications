@@ -15,6 +15,7 @@ stdlib only; runs alongside ros2 launch inside the demo container.
 """
 import asyncio
 import base64
+import contextvars
 import hashlib
 import json
 import os
@@ -23,6 +24,9 @@ import signal
 import time
 import urllib.request
 from urllib.parse import parse_qs, quote, urlsplit
+
+# Per-request CORS origin (async-safe: each connection task has its own copy).
+_origin = contextvars.ContextVar('origin', default='https://robium.org')
 
 PORT = int(os.environ.get('PORT', '8765'))
 BRIDGE = ('127.0.0.1', 8766)
@@ -182,18 +186,28 @@ def fleet_running():
     return None
 
 
+ALLOWED_ORIGINS = ('https://robium.org',)
+
+
+def cors_origin(head):
+    """Reflect an allowed Origin (exact-origin CORS with credentials — ACAO:*
+    is invalid alongside credentials). Prod is robium.org; localhost:* is
+    allowed so `npm run dev` can iterate the frontend against this gateway."""
+    for line in head.split('\r\n'):
+        if line.lower().startswith('origin:'):
+            o = line.split(':', 1)[1].strip()
+            if o in ALLOWED_ORIGINS or o.startswith('http://localhost:') or o.startswith('http://127.0.0.1:'):
+                return o
+    return ALLOWED_ORIGINS[0]
+
+
 def http_response(status, body, extra=''):
-    # Connection: close is load-bearing behind Cloud Run's proxy: it pools
-    # keep-alive connections to the instance, and closing the socket after a
-    # response without declaring it surfaces as "malformed HTTP response"
-    # 503s at the edge (verified 2026-07-13).
-    # Exact-origin CORS + credentials: the page fetches with
-    # credentials:'include' so Cloud Run's GAESA affinity cookie rides along
-    # (same-site via demo.robium.org — the cookie is SameSite-Lax and never
-    # flows to run.app cross-site). ACAO:* is invalid with credentials.
+    # Connection: close is load-bearing behind Cloud Run's proxy (pools
+    # keep-alive; a silent close = edge 503 "malformed"). Exact-origin CORS +
+    # credentials so the affinity cookie rides on same-site fetches.
     return (f'HTTP/1.1 {status}\r\nContent-Type: application/json\r\n'
             f'Content-Length: {len(body)}\r\n'
-            f'Access-Control-Allow-Origin: https://robium.org\r\n'
+            f'Access-Control-Allow-Origin: {_origin.get()}\r\n'
             f'Access-Control-Allow-Credentials: true\r\n'
             f'Connection: close\r\n'
             f'{extra}\r\n{body}').encode()
@@ -241,6 +255,16 @@ async def handle(reader, writer):
     url = urlsplit(target)
     session = parse_qs(url.query).get('session', [None])[0]
     is_upgrade = 'upgrade: websocket' in head.lower()
+    _origin.set(cors_origin(head))
+
+    if method == 'OPTIONS':  # CORS preflight
+        writer.write(('HTTP/1.1 204 No Content\r\n'
+                      f'Access-Control-Allow-Origin: {_origin.get()}\r\n'
+                      'Access-Control-Allow-Credentials: true\r\n'
+                      'Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n'
+                      'Access-Control-Allow-Headers: content-type\r\n'
+                      'Connection: close\r\nContent-Length: 0\r\n\r\n').encode())
+        await writer.drain(); writer.close(); return
 
     # Session-guard for the control/fs/pty/logs surfaces (not the Foxglove
     # tunnel, which claims). Foreign session on a claimed instance → reject.

@@ -36,6 +36,10 @@ services:
     <<: *app
     profiles: [demo]
     ports: ["8765:8765"]
+    # Live-edit the gateway/scripts without an image rebuild: edit
+    # apps/nav-trial/scripts/*, then `docker compose restart demo` (seconds).
+    volumes:
+      - ../scripts:/ws/scripts:ro
     command: ros2 launch nav_trial_bringup demo.launch.py
 
   smoke:
