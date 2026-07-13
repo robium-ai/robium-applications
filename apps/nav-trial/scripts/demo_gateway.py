@@ -33,8 +33,14 @@ def http_response(status, body, extra=''):
     # keep-alive connections to the instance, and closing the socket after a
     # response without declaring it surfaces as "malformed HTTP response"
     # 503s at the edge (verified 2026-07-13).
+    # Exact-origin CORS + credentials: the page fetches with
+    # credentials:'include' so Cloud Run's GAESA affinity cookie rides along
+    # (same-site via demo.robium.org — the cookie is SameSite-Lax and never
+    # flows to run.app cross-site). ACAO:* is invalid with credentials.
     return (f'HTTP/1.1 {status}\r\nContent-Type: application/json\r\n'
-            f'Content-Length: {len(body)}\r\nAccess-Control-Allow-Origin: *\r\n'
+            f'Content-Length: {len(body)}\r\n'
+            f'Access-Control-Allow-Origin: https://robium.org\r\n'
+            f'Access-Control-Allow-Credentials: true\r\n'
             f'Connection: close\r\n'
             f'{extra}\r\n{body}').encode()
 
