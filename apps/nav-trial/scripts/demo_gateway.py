@@ -18,14 +18,56 @@ import json
 import os
 import signal
 import time
-from urllib.parse import parse_qs, urlsplit
+import urllib.request
+from urllib.parse import parse_qs, quote, urlsplit
 
 PORT = int(os.environ.get('PORT', '8765'))
 BRIDGE = ('127.0.0.1', 8766)
 STATUS_PATH = '/tmp/demo_status.json'
 SESSION_SECONDS = 1800
+FLEET_BUDGET = 5  # keep in sync with Cloud Run --max-instances
+FLEET_CACHE_S = 30
 
 state = {'session': None, 'tunnel_open': False, 'claimed_at': None}
+fleet_cache = {'at': 0.0, 'running': None}
+
+
+def fleet_running():
+    """Service-wide live instance count via Cloud Monitoring (cached).
+
+    Uses the metadata-server token; needs roles/monitoring.viewer on the
+    runtime service account. Returns None off-GCP or on any error.
+    """
+    now = time.time()
+    if now - fleet_cache['at'] < FLEET_CACHE_S:
+        return fleet_cache['running']
+    fleet_cache['at'] = now
+    try:
+        tok_req = urllib.request.Request(
+            'http://metadata.google.internal/computeMetadata/v1/instance/'
+            'service-accounts/default/token',
+            headers={'Metadata-Flavor': 'Google'})
+        token = json.load(urllib.request.urlopen(tok_req, timeout=2))['access_token']
+        project = urllib.request.urlopen(urllib.request.Request(
+            'http://metadata.google.internal/computeMetadata/v1/project/project-id',
+            headers={'Metadata-Flavor': 'Google'}), timeout=2).read().decode()
+        flt = quote('metric.type="run.googleapis.com/container/instance_count" '
+                    'AND resource.labels.service_name="demo-nav-trial"')
+        end = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(now))
+        start = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(now - 240))
+        url = (f'https://monitoring.googleapis.com/v3/projects/{project}/timeSeries'
+               f'?filter={flt}&interval.endTime={end}&interval.startTime={start}')
+        req = urllib.request.Request(url, headers={'Authorization': f'Bearer {token}'})
+        data = json.load(urllib.request.urlopen(req, timeout=5))
+        total = 0
+        for series in data.get('timeSeries', []):
+            points = series.get('points', [])
+            if points:
+                total += int(points[0]['value'].get('int64Value', 0))
+        fleet_cache['running'] = total
+    except Exception:
+        fleet_cache['running'] = None
+    return fleet_cache['running']
 
 
 def http_response(status, body, extra=''):
@@ -120,6 +162,22 @@ async def handle(reader, writer):
             state['tunnel_open'] = False
         return
 
+    if url.path == '/start' and method == 'POST':
+        # Explicit session claim, before any viewer connects. Busy only if a
+        # live tunnel exists or another session actively holds the claim
+        # with a live tunnel; an idle claim is takeable (reload semantics).
+        if state['tunnel_open'] and session != state['session']:
+            writer.write(http_response('503 Busy', json.dumps({'error': 'busy'})))
+        else:
+            if session != state['session']:
+                state['claimed_at'] = time.time()
+            state['session'] = session or 'anonymous'
+            state['claimed_at'] = state['claimed_at'] or time.time()
+            writer.write(http_response('200 OK', json.dumps({'ok': True})))
+        await writer.drain()
+        writer.close()
+        return
+
     if url.path == '/status':
         if state['session'] and session != state['session']:
             writer.write(http_response('409 Conflict', json.dumps({'error': 'not your instance'})))
@@ -130,6 +188,7 @@ async def handle(reader, writer):
                 'claimed': state['session'] is not None,
                 'ready': s['ready'], 'rtf': s['rtf'], 'nodes': s['nodes'],
                 'uptime_s': up, 'remaining_s': max(0, SESSION_SECONDS - up),
+                'fleet': {'running': fleet_running(), 'budget': FLEET_BUDGET},
                 'log': s['log'],
             })
             writer.write(http_response('200 OK', body))

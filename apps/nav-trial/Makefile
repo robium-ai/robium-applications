@@ -25,6 +25,8 @@ demo-smoke:
 	$(COMPOSE) --profile demo up --build -d demo
 	n=0; until bash tests/check_ws.sh http://localhost:8765; do \
 	  n=$$((n+1)); [ $$n -ge 20 ] && echo "WS TIMEOUT" && exit 1; sleep 3; done
+	curl -sf -X POST "http://localhost:8765/start?session=smoke" | grep -q '"ok": true'
+	curl -sf "http://localhost:8765/status?session=smoke" | grep -q '"budget": 5'
 	n=0; until curl -sf "http://localhost:8765/status?session=smoke" | grep -q '"ready": *true'; do \
 	  n=$$((n+1)); [ $$n -ge 48 ] && echo "READY TIMEOUT" && exit 1; sleep 5; done
 	curl -sf "http://localhost:8765/status?session=smoke"
@@ -50,7 +52,7 @@ demo-deploy:
 	gcloud run deploy demo-nav-trial --image=$(DEMO_IMAGE) \
 	  --region=us-central1 --project=robium-prod --platform=managed \
 	  --port=8765 --concurrency=4 --session-affinity --min-instances=0 --max-instances=5 \
-	  --timeout=1800 --cpu=8 --memory=8Gi --cpu-boost \
+	  --timeout=1800 --cpu=8 --memory=8Gi --cpu-boost --no-cpu-throttling \
 	  --execution-environment=gen2 \
 	  --set-env-vars=GZ_RELAY=127.0.0.1,GZ_IP=127.0.0.1,FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \
 	  --command=/entrypoint.sh --args="ros2,launch,nav_trial_bringup,demo.launch.py" \
