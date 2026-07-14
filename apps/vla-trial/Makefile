@@ -1,4 +1,4 @@
-.PHONY: sync assets test clean
+.PHONY: sync assets test clean spike-render
 
 sync:
 	uv sync
@@ -11,3 +11,7 @@ test:
 
 clean:
 	rm -rf outputs
+
+# M0: MuJoCo offscreen render throughput (spec risk 2).
+spike-render:
+	uv run python -m vla_trial.run spike-render

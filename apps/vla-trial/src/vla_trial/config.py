@@ -25,3 +25,20 @@ SCENE_XML = ASSETS / "scene_pick.xml"
 # menagerie does not name an overview camera "scene", only the wrist one).
 WRIST_CAM = "wrist_cam"
 SCENE_CAM = "scene"
+
+# --- rendering -------------------------------------------------------------
+# Policy observation size. 256x256 is SmolVLA's expected image scale.
+IMG_W = 256
+IMG_H = 256
+
+SPIKE_OUTPUT_DIR = APP_ROOT / "outputs" / "spike"
+RENDER_SPIKE_JSON = SPIKE_OUTPUT_DIR / "render.json"
+POLICY_SPIKE_JSON = SPIKE_OUTPUT_DIR / "policy.json"
+
+# M0 gate: the render rate the sim must clear for a laptop demo to be viable.
+# One control step renders 2 cameras; at 30 FPS sim that is 60 renders/sec.
+RENDER_FPS_FLOOR = 60.0
+
+# M0 gate: SmolVLA action chunking means one forward pass covers ~50 actions
+# (~1.7 s of robot motion at 30 FPS). So the bar is ~1 pass/sec, not 30 Hz.
+POLICY_LATENCY_CEILING_S = 1.0
