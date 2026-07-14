@@ -16,13 +16,21 @@ unreachable target — a target outside the arm's reach simply fails to converge
 within `tol` and the best-effort (locally-optimal) joint config is returned. Callers
 that need to know whether a target was actually reached must check the resulting
 site position against the target themselves (see the Step 3a probe in the task
-brief, or `tests/test_ik.py`).
+brief, or `tests/test_reachability.py`).
 """
 
 import mujoco
 import numpy as np
 
-N_ARM_JOINTS = 5  # shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll.
+from vla_trial.config import (
+    IK_DAMPING,
+    IK_MAX_ITERS,
+    IK_N_ARM_JOINTS,
+    IK_STEP_SCALE,
+    IK_TOL,
+)
+
+N_ARM_JOINTS = IK_N_ARM_JOINTS  # shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll.
 
 
 def solve_ik(
@@ -30,10 +38,10 @@ def solve_ik(
     data: mujoco.MjData,
     site_name: str,
     target_pos: np.ndarray,
-    max_iters: int = 200,
-    tol: float = 1e-4,
-    damping: float = 1e-3,
-    step_scale: float = 1.0,
+    max_iters: int = IK_MAX_ITERS,
+    tol: float = IK_TOL,
+    damping: float = IK_DAMPING,
+    step_scale: float = IK_STEP_SCALE,
 ) -> np.ndarray:
     """Solve for the arm qpos (5,) that drives `site_name` to `target_pos`.
 

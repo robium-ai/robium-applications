@@ -30,6 +30,8 @@ from vla_trial.config import (
     N_JOINTS,
     SCENE_CAM,
     SCENE_XML,
+    SUCCESS_MAX_SPEED,
+    SUCCESS_SETTLE_STEPS,
     SUCCESS_XY_TOL,
     SUCCESS_Z_MAX,
     TASK,
@@ -77,8 +79,27 @@ class SO101PickEnv(gym.Env):
             )
         # The cube's freejoint qpos address (7 dof: 3 pos + 4 quat).
         self._cube_qadr = self.model.jnt_qposadr[self.model.body_jntadr[self._cube_bid]]
+        # The cube's freejoint qvel address (6 dof: 3 linear + 3 angular), used
+        # by the success predicate's at-rest check.
+        self._cube_vadr = self.model.jnt_dofadr[self.model.body_jntadr[self._cube_bid]]
+
+        # Structural guarantee behind `_obs()`'s `qpos[:N_JOINTS]` slice (see
+        # docstring above): this is what actually keeps the cube's ground-truth
+        # pose out of the policy's observation. It holds today only because the
+        # cube's freejoint happens to be ordered after the 6 actuated joints in
+        # the MJCF. A future scene edit that inserts a body/joint before the cube
+        # would silently shift this and leak ground truth into `observation.state`
+        # — assert it here so that edit fails loudly at construction instead.
+        assert self._cube_qadr >= N_JOINTS, (
+            f"cube qpos address ({self._cube_qadr}) is before N_JOINTS ({N_JOINTS}) "
+            "— qpos[:N_JOINTS] would leak the cube's ground-truth pose into "
+            "observation.state. A body/joint was inserted before the cube in the "
+            "scene (or N_JOINTS grew to include it); fix the scene ordering or "
+            "revisit this invariant deliberately."
+        )
 
         self._steps = 0
+        self._settle_steps = 0
 
         # Actuator ranges are the ground truth for the action space.
         lo = self.model.actuator_ctrlrange[:, 0].astype(np.float32)
@@ -126,6 +147,7 @@ class SO101PickEnv(gym.Env):
 
         mujoco.mj_forward(self.model, self.data)
         self._steps = 0
+        self._settle_steps = 0
         return self._obs(), {"task": self.task, "is_success": False}
 
     def step(self, action: np.ndarray):
@@ -162,8 +184,29 @@ class SO101PickEnv(gym.Env):
         self._renderer.update_scene(self.data, camera=camera)
         return self._renderer.render()
 
-    def _is_success(self) -> bool:
+    def _in_zone_and_at_rest(self) -> bool:
+        """XY+Z zone check AND a genuine at-rest check (linear speed below
+        threshold) for the CURRENT physics step only. Does not by itself imply
+        success — see `_is_success`'s debounce."""
         cube, bin_ = self.cube_pos, self.bin_pos
         in_xy = np.linalg.norm(cube[:2] - bin_[:2]) < SUCCESS_XY_TOL
-        settled = cube[2] < SUCCESS_Z_MAX
-        return bool(in_xy and settled)
+        low = cube[2] < SUCCESS_Z_MAX
+        speed = float(np.linalg.norm(self.data.qvel[self._cube_vadr : self._cube_vadr + 3]))
+        at_rest = speed < SUCCESS_MAX_SPEED
+        return bool(in_xy and low and at_rest)
+
+    def _is_success(self) -> bool:
+        # The bin's walls are shallow (wall height ~= cube half-height), so a
+        # cube can bounce THROUGH the XY+Z zone on its way back out. Requiring
+        # the in-zone-AND-at-rest condition to hold for SUCCESS_SETTLE_STEPS
+        # consecutive control steps (not just once) is what rejects that: a
+        # bouncing cube's speed only dips below SUCCESS_MAX_SPEED momentarily
+        # (near the top of a bounce) and the streak resets to 0 the instant it
+        # speeds back up, so it can never accumulate a full debounce window. A
+        # cube actually placed/settled in the bin stays slow across consecutive
+        # steps and does accumulate one.
+        if self._in_zone_and_at_rest():
+            self._settle_steps += 1
+        else:
+            self._settle_steps = 0
+        return self._settle_steps >= SUCCESS_SETTLE_STEPS

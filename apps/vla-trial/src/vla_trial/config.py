@@ -104,3 +104,24 @@ CUBE_SPAWN_HALF_EXTENT = 0.05
 # in it rather than being carried above it. Bin inner half-width is 0.055.
 SUCCESS_XY_TOL = 0.05
 SUCCESS_Z_MAX = 0.06
+
+# The bin walls are shallow (wall height ~= cube half-height), so a cube can
+# bounce THROUGH the XY+Z success zone on its way back out. A single-step
+# position check alone would register that bounce as success. So success also
+# requires the cube to be genuinely at rest: linear speed below
+# SUCCESS_MAX_SPEED, AND the in-zone-and-slow condition held for
+# SUCCESS_SETTLE_STEPS consecutive control steps (debounce). A cube merely
+# passing through the zone can't satisfy both at once for that many steps in a
+# row; a cube actually placed/settled in the bin can.
+SUCCESS_SETTLE_STEPS = 5
+SUCCESS_MAX_SPEED = 0.05  # m/s, cube linear speed threshold to count as "at rest".
+
+# --- ik ----------------------------------------------------------------
+# Damped-least-squares IK hyperparameters (env/ik.py's solve_ik). Project
+# rule: run parameters live in config.py, not hardcoded in the solver — the
+# scripted oracle (next task) may need to retune these.
+IK_N_ARM_JOINTS = 5  # shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll.
+IK_MAX_ITERS = 200
+IK_TOL = 1e-4
+IK_DAMPING = 1e-3
+IK_STEP_SCALE = 1.0
