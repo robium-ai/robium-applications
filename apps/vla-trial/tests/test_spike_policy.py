@@ -36,3 +36,29 @@ def test_bench_policy_does_not_touch_the_canonical_artifact(tmp_path):
     bench_policy(device="cpu", n_passes=1, output_json=tmp_path / "throwaway.json")
     after = POLICY_SPIKE_JSON.read_text() if POLICY_SPIKE_JSON.is_file() else None
     assert before == after, "the test run overwrote the canonical M0 benchmark artifact"
+
+
+def test_cold_call_is_within_factor_of_2_of_steady_state(tmp_path):
+    """Verifies, from shipped code rather than an out-of-band claim in the
+    report, that the steady-state timed passes are real forward passes and
+    not chunk-cache hits.
+
+    A cache hit (``self._queues[ACTION].popleft()``) is sub-millisecond; a
+    real forward pass on this checkpoint is single-digit seconds on CPU. If
+    the "steady state" numbers were secretly serving cached actions, a truly
+    cold call (zero warm-up) would be dramatically slower than them — not
+    within 2x.
+    """
+    steady = bench_policy(
+        device="cpu", n_passes=2, n_warmup_passes=1, output_json=tmp_path / "steady.json"
+    )
+    cold = bench_policy(
+        device="cpu", n_passes=1, n_warmup_passes=0, output_json=tmp_path / "cold.json"
+    )
+
+    ratio = cold["mean_s"] / steady["mean_s"]
+    assert 0.5 <= ratio <= 2.0, (
+        f"cold call ({cold['mean_s']:.2f}s) vs steady-state mean "
+        f"({steady['mean_s']:.2f}s) differ by {ratio:.2f}x — steady-state timings "
+        "may be serving cached action-chunk lookups rather than real forward passes"
+    )

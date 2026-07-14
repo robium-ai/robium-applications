@@ -27,12 +27,28 @@ from vla_trial.config import (
     IMG_W,
     N_JOINTS,
     POLICY_SPIKE_JSON,
+    POLICY_SPIKE_N_PASSES,
+    POLICY_SPIKE_WARMUP_PASSES,
     TASK,
 )
 
-# First timed pass pays lazy-init/kernel-compile costs far beyond the rest —
-# 2 warm-up passes, as sketched in the brief, left no headroom; use 5.
-N_WARMUP_PASSES = 5
+
+def _sync(device: str) -> None:
+    """Block until all queued async device ops finish.
+
+    MPS (and CUDA) ops are dispatched asynchronously: ``select_action()``
+    returns as soon as the work is *queued*, not once it is *computed*.
+    Nothing downstream in the LeRobot call chain (``select_action`` ->
+    ``_get_action_chunk`` -> ``sample_actions`` -> ``vlm_with_expert.forward``)
+    calls ``.cpu()``/``.item()``/``.numpy()`` to force a wait, so timing with
+    a bare ``time.perf_counter()`` around it measures dispatch time, not
+    compute time — silently flattering MPS. CPU is synchronous already; this
+    is a no-op there.
+    """
+    if device == "mps":
+        torch.mps.synchronize()
+    elif device == "cuda":
+        torch.cuda.synchronize()
 
 
 def _runtime() -> str:
@@ -86,8 +102,9 @@ def _dummy_batch(policy, device: str) -> dict:
 
 def bench_policy(
     device: str = "cpu",
-    n_passes: int = 20,
+    n_passes: int = POLICY_SPIKE_N_PASSES,
     output_json: Path | None = None,
+    n_warmup_passes: int = POLICY_SPIKE_WARMUP_PASSES,
 ) -> dict:
     """Time ``n_passes`` real SmolVLA forward passes on ``device``.
 
@@ -96,6 +113,12 @@ def bench_policy(
     into the canonical file would silently overwrite the real 20-pass
     benchmark with a throwaway number — which it did, once, before this
     parameter existed.
+
+    ``n_warmup_passes=0`` turns this into a cold-call probe: one timed pass
+    with no warm-up at all, used to check the "is the steady-state timing a
+    real forward pass and not a warmed-up cache artifact" claim from code
+    rather than an out-of-band, unverifiable number (see
+    ``test_cold_call_is_within_factor_of_2_of_steady_state``).
     """
     from lerobot.policies import make_pre_post_processors
     from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
@@ -114,18 +137,25 @@ def bench_policy(
 
     batch = preprocessor(_dummy_batch(policy, device))
 
-    # Warm-up: first passes pay lazy-init and kernel-compile costs.
+    # Warm-up: first passes pay lazy-init and kernel-compile costs. Synced on
+    # both sides of each call so the LAST warm-up pass's queued MPS work is
+    # fully drained before the timed loop's first pass starts — otherwise the
+    # first timed measurement would silently include leftover warm-up work.
     with torch.inference_mode():
-        for _ in range(N_WARMUP_PASSES):
+        for _ in range(n_warmup_passes):
             policy.reset()
+            _sync(device)
             policy.select_action(batch)
+            _sync(device)
 
     timings = []
     with torch.inference_mode():
         for _ in range(n_passes):
             policy.reset()  # force a real forward pass, not a cached chunk step
+            _sync(device)  # drain anything still queued before starting the clock
             start = time.perf_counter()
             policy.select_action(batch)
+            _sync(device)  # block until the forward pass actually finishes
             timings.append(time.perf_counter() - start)
 
     runtime = _runtime()
@@ -134,7 +164,7 @@ def bench_policy(
         "runtime": runtime,
         "policy": BASE_POLICY_ID,
         "n_passes": n_passes,
-        "n_warmup_passes": N_WARMUP_PASSES,
+        "n_warmup_passes": n_warmup_passes,
         "mean_s": statistics.mean(timings),
         # Median is the honest central estimate here: the container run shows
         # occasional multi-second stalls (Docker Desktop VM scheduling) that

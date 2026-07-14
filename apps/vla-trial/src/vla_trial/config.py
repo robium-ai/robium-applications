@@ -50,6 +50,14 @@ RENDER_SPIKE_WARMUP_FRAMES = 5
 # (~1.7 s of robot motion at 30 FPS). So the bar is ~1 pass/sec, not 30 Hz.
 POLICY_LATENCY_CEILING_S = 1.0
 
+# Spike: number of timed passes in the policy-latency benchmark run.
+POLICY_SPIKE_N_PASSES = 20
+
+# Spike: number of warm-up passes to discard before timing starts. The first
+# timed pass pays lazy-init/kernel-compile costs far beyond the rest — 2
+# warm-up passes, as sketched in the brief, left no headroom; 5 does.
+POLICY_SPIKE_WARMUP_PASSES = 5
+
 # --- policy ------------------------------------------------------------
 # 450M. The only VLA in the "runs without a GPU" class. Its pretraining corpus
 # is SO-100 data exclusively, so an SO-101 fine-tune is in-embodiment.

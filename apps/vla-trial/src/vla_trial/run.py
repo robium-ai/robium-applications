@@ -17,13 +17,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if cmd == "spike-policy":
+        from vla_trial.config import POLICY_SPIKE_N_PASSES
         from vla_trial.spike.bench_policy import bench_policy
 
         devices = rest or ["cpu", "mps"]
         measured = 0
         for device in devices:
             try:
-                print(json.dumps(bench_policy(device=device, n_passes=20), indent=2))
+                print(json.dumps(bench_policy(device=device, n_passes=POLICY_SPIKE_N_PASSES), indent=2))
                 measured += 1
             except Exception as exc:  # a device may genuinely be unavailable
                 print(f"{device}: unavailable ({exc})", file=sys.stderr)

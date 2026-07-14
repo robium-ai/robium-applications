@@ -35,14 +35,26 @@ benchmark exists. It does now.
 and not a cached action-chunk lookup. Reproduce with `make spike-policy` and
 `make spike-policy-container`; raw data in `outputs/spike/policy.json`.
 
+**MPS number is sync-corrected (2026-07-13 fix pass).** MPS ops are
+asynchronous and nothing in the LeRobot `select_action` call chain forces a
+wait, so a bare `time.perf_counter()` was measuring dispatch time, not
+compute time. `bench_policy.py` now calls `torch.mps.synchronize()` (device-
+agnostic `_sync()` helper, no-op on CPU) both immediately before starting the
+timer and immediately before stopping it, around every warm-up and timed
+pass. The corrected MPS mean moved from 0.536 s to 0.549 s (+2.4%) — a small,
+expected shift, not a qualitative change to the verdict.
+
 | Config | mean | median | p95 | vs 1 s ceiling |
 | --- | --- | --- | --- | --- |
-| **MPS, native** (uv, Apple Silicon) | **0.536 s** | 0.536 s | 0.543 s | **PASS** (~2x headroom) |
+| **MPS, native** (uv, Apple Silicon, sync-corrected) | **0.549 s** | 0.547 s | 0.571 s | **PASS** (~1.8x headroom) |
 | **CPU, native** (uv, Apple Silicon) | **9.004 s** | 8.953 s | 9.244 s | FAIL (9.0x over) |
 | **CPU, linux/arm64 container** | **9.318 s** | 9.258 s | 9.621 s | **FAIL (9.3x over)** |
 
 Native CPU was measured three independent times (9.159 / 9.186 / 9.004 s mean) —
 the result is stable to within ~2%, so the verdict does not hinge on one run.
+(CPU is synchronous already, so the sync fix does not change the CPU numbers;
+a fourth CPU run during the fix pass measured 9.648 s, consistent with normal
+run-to-run variance from other load on the machine, not a fix effect.)
 
 Bar is `POLICY_LATENCY_CEILING_S = 1.0` s, not 30 Hz: action chunking means one
 forward pass yields ~50 actions ≈ 1.7 s of robot motion at 30 FPS.
@@ -77,12 +89,12 @@ built until they are confirmed with the user:**
    expensive per visitor than the plan assumed and the plan's costing should be
    revisited.
 2. **A laptop demo is still viable — but only natively (uv), never in Docker.**
-   MPS at 0.536 s clears the ceiling with ~2x headroom. This mirrors
-   `apps/manip-trial`, which chose uv over Docker for exactly this reason.
-   So local dev and the deployed demo now have *genuinely different* inference
-   paths, and the code must abstract over that seam from the start.
+   MPS at 0.549 s (sync-corrected) clears the ceiling with ~1.8x headroom. This
+   mirrors `apps/manip-trial`, which chose uv over Docker for exactly this
+   reason. So local dev and the deployed demo now have *genuinely different*
+   inference paths, and the code must abstract over that seam from the start.
 3. **The 1 s ceiling itself deserves a second look.** It came from the chunking
-   argument, and MPS meets it — but 0.536 s per chunk still means a visible
+   argument, and MPS meets it — but 0.549 s per chunk still means a visible
    half-second pause at every chunk boundary unless chunk N+1 is computed while
    chunk N executes. Async is worth building even on the passing path.
 
