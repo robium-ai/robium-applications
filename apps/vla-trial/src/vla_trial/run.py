@@ -16,6 +16,29 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(bench_render(), indent=2))
         return 0
 
+    if cmd == "spike-policy":
+        from vla_trial.spike.bench_policy import bench_policy
+
+        devices = rest or ["cpu", "mps"]
+        measured = 0
+        for device in devices:
+            try:
+                print(json.dumps(bench_policy(device=device, n_passes=20), indent=2))
+                measured += 1
+            except Exception as exc:  # a device may genuinely be unavailable
+                print(f"{device}: unavailable ({exc})", file=sys.stderr)
+        # Fail loudly if NOTHING was measured. The whole point of this
+        # subcommand is to produce a number; a run that measured nothing
+        # (e.g. the container hitting an HF Hub 401 while fetching weights)
+        # must not exit 0 and look like a successful benchmark.
+        if measured == 0:
+            print(
+                f"spike-policy: measured 0 of {len(devices)} device(s) — no benchmark produced",
+                file=sys.stderr,
+            )
+            return 1
+        return 0
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 

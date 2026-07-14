@@ -49,3 +49,29 @@ RENDER_SPIKE_WARMUP_FRAMES = 5
 # M0 gate: SmolVLA action chunking means one forward pass covers ~50 actions
 # (~1.7 s of robot motion at 30 FPS). So the bar is ~1 pass/sec, not 30 Hz.
 POLICY_LATENCY_CEILING_S = 1.0
+
+# --- policy ------------------------------------------------------------
+# 450M. The only VLA in the "runs without a GPU" class. Its pretraining corpus
+# is SO-100 data exclusively, so an SO-101 fine-tune is in-embodiment.
+BASE_POLICY_ID = "lerobot/smolvla_base"
+
+# SO-101: 5 arm joints + 1 gripper.
+N_JOINTS = 6
+
+TASK = "put the green cube in the bin"
+
+# Ground truth about the vendored scene, established in Task 1 (do not guess):
+#   bodies: world, base, shoulder, upper_arm, lower_arm, wrist, gripper,
+#           camera_mount, moving_jaw_so101_v1, box
+#   sites:  baseframe, gripperframe          (there is NO fingertip site)
+#   cams:   wrist_cam                        (the "scene" cam is OURS, added in
+#                                             scene_pick.xml — menagerie has none)
+#   actuators: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll,
+#              gripper
+# The menagerie scene ships ONE manipulable object, body+geom both named "box"
+# (green, half-extents 0.02 0.02 0.03, at 0.5 0 0.03). There is NO container —
+# Task 4 adds one to scene_pick.xml. So the pick target's body name is "box"
+# even though we call it "the cube" in the task string.
+CUBE_BODY = "box"
+BIN_BODY = "bin"
+EE_SITE = "gripperframe"
