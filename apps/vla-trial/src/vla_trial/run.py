@@ -3,8 +3,6 @@
 import json
 import sys
 
-from vla_trial.spike.bench_render import bench_render
-
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -14,7 +12,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cmd, *rest = argv
     if cmd == "spike-render":
-        print(json.dumps(bench_render(n_frames=1000), indent=2))
+        from vla_trial.spike.bench_render import bench_render
+        print(json.dumps(bench_render(), indent=2))
         return 0
 
     print(f"unknown subcommand: {cmd}", file=sys.stderr)

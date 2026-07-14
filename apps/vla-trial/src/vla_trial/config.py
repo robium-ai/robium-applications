@@ -39,6 +39,13 @@ POLICY_SPIKE_JSON = SPIKE_OUTPUT_DIR / "policy.json"
 # One control step renders 2 cameras; at 30 FPS sim that is 60 renders/sec.
 RENDER_FPS_FLOOR = 60.0
 
+# Spike: number of frames to render in the benchmark run.
+RENDER_SPIKE_N_FRAMES = 1000
+
+# Spike: number of warm-up frames to discard before timing starts.
+# GL/driver state takes ~4 renders to reach steady state; set to 5 for margin.
+RENDER_SPIKE_WARMUP_FRAMES = 5
+
 # M0 gate: SmolVLA action chunking means one forward pass covers ~50 actions
 # (~1.7 s of robot motion at 30 FPS). So the bar is ~1 pass/sec, not 30 Hz.
 POLICY_LATENCY_CEILING_S = 1.0

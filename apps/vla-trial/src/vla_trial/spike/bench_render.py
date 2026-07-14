@@ -22,6 +22,8 @@ from vla_trial.config import (
     IMG_H,
     IMG_W,
     RENDER_SPIKE_JSON,
+    RENDER_SPIKE_N_FRAMES,
+    RENDER_SPIKE_WARMUP_FRAMES,
     SCENE_XML,
     SPIKE_OUTPUT_DIR,
     WRIST_CAM,
@@ -32,7 +34,7 @@ def _default_backend() -> str:
     return "cgl" if platform.system() == "Darwin" else "egl"
 
 
-def bench_render(n_frames: int = 1000, width: int = IMG_W, height: int = IMG_H) -> dict:
+def bench_render(n_frames: int = RENDER_SPIKE_N_FRAMES, width: int = IMG_W, height: int = IMG_H) -> dict:
     os.environ.setdefault("MUJOCO_GL", _default_backend())
 
     model = mujoco.MjModel.from_xml_path(str(SCENE_XML))
@@ -40,8 +42,10 @@ def bench_render(n_frames: int = 1000, width: int = IMG_W, height: int = IMG_H) 
     mujoco.mj_forward(model, data)
 
     with mujoco.Renderer(model, height=height, width=width) as renderer:
-        renderer.update_scene(data, camera=WRIST_CAM)  # warm-up: first render builds GL state
-        renderer.render()
+        # warm-up: discard frames until GL/driver state reaches steady state
+        for _ in range(RENDER_SPIKE_WARMUP_FRAMES):
+            renderer.update_scene(data, camera=WRIST_CAM)
+            renderer.render()
 
         start = time.perf_counter()
         for _ in range(n_frames):
