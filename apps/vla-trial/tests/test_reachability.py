@@ -27,9 +27,14 @@ from vla_trial.config import (
     CUBE_SPAWN_CENTER,
     CUBE_SPAWN_HALF_EXTENT,
     EE_SITE,
+    PEDESTAL_HEIGHT,
     SCENE_XML,
 )
 from vla_trial.env.ik import solve_ik
+
+# menagerie's `box` geom: half-extents 0.02 0.02 0.03 (a 4x4x6 cm cube).
+CUBE_HALF_WIDTH = 0.02
+CUBE_HALF_HEIGHT = 0.03
 
 # "Reachable" per the brief's Step 3a definition: IK residual under 1 cm.
 REACHABLE_TOL = 0.01
@@ -63,11 +68,41 @@ def _residual(model, data, target) -> float:
 
 
 def _cube_spawn_points():
+    """Spawn corners + centre. NOTE cz is now on top of the PEDESTAL
+    (PEDESTAL_HEIGHT + the cube's half-height), not on the floor — Task 5 added
+    the pedestal because the pick is physically impossible without it, and that
+    changes the geometry this probe has to cover. Task 4's floor-height
+    verification no longer applies."""
     cx, cy, cz = CUBE_SPAWN_CENTER
     h = CUBE_SPAWN_HALF_EXTENT
     points = [(cx + dx, cy + dy, cz) for dx, dy in itertools.product((-h, h), (-h, h))]
     points.append((cx, cy, cz))  # center
     return points
+
+
+def test_cube_spawn_sits_on_the_pedestal():
+    """Guards the pedestal/spawn-height coupling: if someone changes
+    PEDESTAL_HEIGHT in config.py but not the pedestal geom in scene_pick.xml (or
+    vice versa), the cube would spawn floating above the pedestal or buried
+    inside it. Both silently wreck the oracle, and neither is obvious from a
+    rendered frame."""
+    ped_gid = mujoco.mj_name2id(_model, mujoco.mjtObj.mjOBJ_GEOM, "ped_top")
+    assert ped_gid >= 0, "scene_pick.xml is missing the pedestal geom 'ped_top'"
+
+    ped_top_z = float(_data.geom_xpos[ped_gid][2] + _model.geom_size[ped_gid][2])
+    assert ped_top_z == pytest.approx(PEDESTAL_HEIGHT, abs=1e-6), (
+        f"pedestal top is at z={ped_top_z}, but config says {PEDESTAL_HEIGHT}"
+    )
+    # The cube's centre must sit exactly its half-height above that surface.
+    assert CUBE_SPAWN_CENTER[2] == pytest.approx(ped_top_z + CUBE_HALF_HEIGHT, abs=1e-6)
+
+    # And the whole spawn square (plus the cube's own width) must fit on top.
+    ped_half = float(_model.geom_size[ped_gid][0])
+    needed = CUBE_SPAWN_HALF_EXTENT + CUBE_HALF_WIDTH
+    assert ped_half >= needed, (
+        f"pedestal half-width {ped_half} does not contain the spawn square "
+        f"+ cube ({needed}) — cubes could spawn hanging off the edge"
+    )
 
 
 _model, _data = _load_model_data()

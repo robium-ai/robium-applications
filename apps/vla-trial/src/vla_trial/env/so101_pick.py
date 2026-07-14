@@ -25,7 +25,7 @@ from vla_trial.config import (
     CUBE_GEOM,
     CUBE_SPAWN_CENTER,
     CUBE_SPAWN_HALF_EXTENT,
-    GRIPPER_GEOMS,
+    GRIPPER_BODIES,
     IMG_H,
     IMG_W,
     MAX_EPISODE_STEPS,
@@ -90,20 +90,31 @@ class SO101PickEnv(gym.Env):
         self._cube_geom_id = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_GEOM, CUBE_GEOM
         )
+        # Resolve gripper geoms by BODY MEMBERSHIP, not by name — the fixed
+        # jaw's collision MESH is unnamed in the vendored MJCF, so a name list
+        # silently missed it and `_is_released()` would have reported a cube
+        # resting against it as "released" (a false success). See config.py's
+        # GRIPPER_BODIES comment.
+        gripper_bids = []
+        for body in GRIPPER_BODIES:
+            bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, body)
+            if bid < 0:
+                raise RuntimeError(
+                    f"scene is missing the gripper body {body!r} — did the "
+                    "vendored SO-101 asset change its body names?"
+                )
+            gripper_bids.append(bid)
+
         self._gripper_geom_ids = frozenset(
-            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name)
-            for name in GRIPPER_GEOMS
+            gid
+            for gid in range(self.model.ngeom)
+            if self.model.geom_bodyid[gid] in gripper_bids
         )
-        if self._cube_geom_id < 0 or -1 in self._gripper_geom_ids:
-            missing_gripper = [
-                name
-                for name in GRIPPER_GEOMS
-                if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name) < 0
-            ]
+        if self._cube_geom_id < 0 or not self._gripper_geom_ids:
             raise RuntimeError(
                 f"scene is missing the cube geom {CUBE_GEOM!r} (found: "
-                f"{self._cube_geom_id >= 0}) or gripper geoms {missing_gripper!r} "
-                "— did the vendored SO-101 asset change its geom names?"
+                f"{self._cube_geom_id >= 0}) or has no gripper geoms on bodies "
+                f"{GRIPPER_BODIES!r} — did the vendored SO-101 asset change?"
             )
 
         # Structural guarantee behind `_obs()`'s `qpos[:N_JOINTS]` slice (see
@@ -211,10 +222,10 @@ class SO101PickEnv(gym.Env):
 
     def _is_released(self) -> bool:
         """True iff the cube geom has no active contact with any gripper geom
-        (fixed or moving jaw — see GRIPPER_GEOMS). Position and speed alone
+        (fixed or moving jaw — see GRIPPER_BODIES). Position and speed alone
         can't tell "held" from "let go": a cube lowered slowly enough drifts
         through the in-zone/at-rest window while still fully grasped (this
-        was the Finding 1 bug — see config.py's GRIPPER_GEOMS comment).
+        was the Finding 1 bug — see config.py's GRIPPER_BODIES comment).
         Contact against the gripper's own geoms is the only signal that
         actually distinguishes the two."""
         cube_gid = self._cube_geom_id

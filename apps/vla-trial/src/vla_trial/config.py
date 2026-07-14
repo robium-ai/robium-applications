@@ -98,8 +98,12 @@ MAX_EPISODE_STEPS = 300  # 10 s at 30 FPS.
 # The CENTRE below is a starting guess and MUST be validated by Step 3a's
 # reachability check — every corner of the spawn square has to be IK-reachable,
 # or episodes will fail for a reason that has nothing to do with the policy.
-# The cube's z is its half-height (0.03), so it rests on the floor.
-CUBE_SPAWN_CENTER = (0.32, -0.06, 0.03)
+# The cube rests on the PEDESTAL (scene_pick.xml), not the floor: z is the
+# pedestal's top surface (PEDESTAL_HEIGHT) plus the cube's half-height (0.03).
+# The pedestal is what makes the pick physically possible at all — see Task 5
+# and scene_pick.xml's comment. Half-extent stays 0.05 (a 10cm spawn square).
+PEDESTAL_HEIGHT = 0.06
+CUBE_SPAWN_CENTER = (0.32, -0.06, PEDESTAL_HEIGHT + 0.03)
 CUBE_SPAWN_HALF_EXTENT = 0.05
 
 # Success = the cube is inside the bin's footprint and low enough to be resting
@@ -129,25 +133,23 @@ SUCCESS_MAX_SPEED = 0.05  # m/s, cube linear speed threshold to count as "at res
 # considered instead but rejected: a cube can be set down flush on the floor
 # while the jaws are still closed around it, which would pass a
 # floor-contact check while still being grasped.)
-# Names are so101.xml's `collision_gripper`-class geoms (fixed + moving jaw).
-GRIPPER_GEOMS = (
-    "fixed_jaw_box1",
-    "fixed_jaw_box2",
-    "fixed_jaw_box3",
-    "fixed_jaw_box4",
-    "fixed_jaw_box5",
-    "fixed_jaw_box6",
-    "fixed_jaw_box7",
-    "fixed_jaw_sph_tip1",
-    "fixed_jaw_sph_tip2",
-    "fixed_jaw_sph_tip3",
-    "moving_jaw_box1",
-    "moving_jaw_box2",
-    "moving_jaw_box3",
-    "moving_jaw_sph_tip1",
-    "moving_jaw_sph_tip2",
-    "moving_jaw_sph_tip3",
-)
+# Gripper geoms are resolved by BODY MEMBERSHIP, not by a name list.
+#
+# This used to be a hand-maintained tuple of geom NAMES. That was a latent
+# false-success bug, found in Task 5: the geom that actually collides with the
+# cube -- the fixed jaw's collision mesh
+# (`wrist_roll_follower_so101_gripper_part0_v1`, which spans gripper-local
+# z -0.106..-0.010) -- has NO `name` attribute in the vendored MJCF, so a
+# name-based list could never see it. `_is_released()` would therefore have
+# reported "released" for a cube resting against that mesh while it was still
+# very much in the gripper's grasp, registering a FALSE SUCCESS the moment the
+# grasp started working. Names are optional in MJCF and menagerie leaves most
+# mesh geoms unnamed, so any name list is structurally incomplete.
+#
+# Body membership has none of that failure mode: every collision geom of the
+# gripper belongs to one of these two bodies by construction, named or not.
+# `SO101PickEnv` expands these to geom ids via `model.geom_bodyid`.
+GRIPPER_BODIES = ("gripper", "moving_jaw_so101_v1")
 # The cube's GEOM name (as opposed to CUBE_BODY, its body name) -- MuJoCo
 # keeps geom and body names in separate namespaces, so both happen to be "box".
 CUBE_GEOM = "box"
@@ -163,49 +165,70 @@ IK_DAMPING = 1e-3
 IK_STEP_SCALE = 1.0
 
 # --- oracle --------------------------------------------------------------
-# THE GRASP POINT. Empirically calibrated in Task 5, and NOT where you would
-# guess. The `gripperframe` site (EE_SITE) sits out near the fingertips, at
-# gripper-local (0.012, ~0, -0.098) — but the SO-101 does NOT hold a 4x4x6 cm
-# cube at its fingertips. The fingertips CONVERGE when closed (tip gap goes
-# 0.133 m open -> 0.004 m closed), so aiming them at the cube's centre asks
-# them to pass through solid cube: the fixed jaw's collision mesh shaft
-# (spanning gripper-local z -0.106..-0.010) then rams the cube, the arm stalls
-# with shoulder_lift/elbow_flex saturated at their +-2.94 N*m forcerange, and
-# the jaws close on empty air.
+# THE GRASP POINT — where the jaws actually hold the cube, in GRIPPER-BODY-LOCAL
+# coordinates. Empirically calibrated, and NOT where you would guess.
 #
-# The cube is actually held in the JAW THROAT, up near the jaw root. Found by
-# brute force, not by reading the MJCF: teleport the cube to candidate
-# gripper-local offsets, close the gripper, lift, and keep the offsets whose
-# cube came up with the arm. Holds were found at local (-0.02, 0, -0.030) and
-# (-0.02, 0, -0.040); the midpoint of that band is used here.
-ORACLE_GRASP_LOCAL = np.array([-0.02, 0.0, -0.035])
+# The `gripperframe` site (EE_SITE) is NOT the grasp point. Aiming IK at it puts
+# the real jaws several cm from the cube. Calibrated by brute force instead:
+# park the arm, teleport the cube to a grid of candidate gripper-local offsets,
+# close the gripper, lift, and keep the offsets whose cube came up with the arm.
+# The true-pinch holds (jaws settling at ~0.32 rad, i.e. exactly the cube-width
+# jaw angle, rather than wedging) clustered tightly at local x +0.010..+0.025,
+# z -0.100..-0.115. This is the pinch point BETWEEN the fingertips — which only
+# becomes reachable once the wrist is rolled so the jaws close horizontally (see
+# scripted_pick.py's _solve_roll); before that fix nothing grasped anywhere.
+#
+# This value is SENSITIVE — it was swept end-to-end through the real oracle:
+#   (0.015, -0.102) -> 9/10     (0.015, -0.108) -> 8/10
+#   (0.018, -0.108) -> 8/10     (0.015, -0.114) -> 6/10
+#   (0.012, -0.108) -> 3/10
+# Do not "tidy" it without re-running the sweep.
+ORACLE_GRASP_LOCAL = np.array([0.015, 0.0, -0.102])
 
-# Fixed-point passes used to drive the THROAT (not the site) onto a target —
-# position-only IK leaves the wrist orientation free, so the site->throat
-# offset rotates with the solved pose and cannot be subtracted once.
+# Fixed-point passes that drive the GRASP POINT (not the EE site) onto a target.
+# Position-only IK leaves the wrist orientation free, so the site->grasp-point
+# offset is rotated by whatever pose the solver lands on and cannot be
+# subtracted once — it has to be corrected iteratively.
 ORACLE_GRASP_CORRECTION_ITERS = 4
 
-# How far to back the pre-grasp off ALONG THE FINGER AXIS (not straight up).
-# The fingers point ~32 deg below horizontal, so a purely vertical descent
-# lands the fixed jaw's shaft on top of the cube; retreating along -finger_dir
-# keeps that shaft inside the volume the fingertips already swept through.
-ORACLE_STANDOFF = 0.08
+# Outer passes that re-pick wrist_roll for the arm config the solver landed in
+# (roll changes the pose, which changes the best roll), and the resolution of the
+# 1-D scan over roll used to zero the pinch axis' vertical component.
+ORACLE_ROLL_ITERS = 4
+ORACLE_ROLL_SCAN = 361
 
-# Waypoint heights (metres, above the target's own z). APPROACH_HEIGHT clears
-# the bin's 0.03m walls and any pre-grasp fumbling; LIFT_HEIGHT is the hover
-# height used both to clear the table on the way to the bin AND as the
-# release height. Task 4's test_env.py drop test (real physics, not a probe)
-# already validated that releasing a free cube from directly above bin
-# center at z=0.15 settles into the bin and registers success within 5-12
-# control steps — so this LIFT_HEIGHT doing double duty as the release height
-# is a validated choice, not a guess.
-ORACLE_APPROACH_HEIGHT = 0.10
-ORACLE_LIFT_HEIGHT = 0.15
+# How far to back the pre-grasp off ALONG THE FINGER AXIS (not straight up). The
+# fingers point below horizontal, so a purely vertical descent lands the fixed
+# jaw's shaft on top of the cube; retreating along -finger_dir keeps that shaft
+# inside the volume the fingertips already swept through. Swept: 0.09 -> 8/10,
+# 0.11 -> 7/10.
+ORACLE_STANDOFF = 0.09
+
+# APPROACH_HEIGHT is how far ABOVE the line-up point the arm first travels. It
+# has to actually clear the cube: the position servo takes an arbitrary
+# joint-space path from home, and if this first waypoint is too low the arm
+# sweeps THROUGH the cube on its way there and knocks it off the pedestal.
+#
+# This was the last failing seed. At 0.16 the near-base corner of the spawn
+# square (seed 2, cube at x=0.296 — closest to the arm) got clipped during the
+# very first move: the cube shifted at control step 5, ended up 0.18 m away on
+# the floor, and the episode was a guaranteed loss before the gripper had done
+# anything. 0.20 clears it. Measured on that seed: 0.16 -> FAIL, 0.20/0.24/0.28
+# -> PASS. Kept at 0.20 (the lowest that works) so the arm is not wasting
+# episode budget flying higher than it needs to.
+ORACLE_APPROACH_HEIGHT = 0.20
+
+# Lift clear of the pedestal before traversing to the bin.
+ORACLE_LIFT_HEIGHT = 0.12
+
+# Release height above the bin. Task 4's real-physics drop test validated that a
+# free cube released from directly above bin centre at this height settles into
+# the bin and registers success 5-12 control steps after floor contact.
+ORACLE_RELEASE_HEIGHT = 0.15
 
 # Control steps to hold at each waypoint before advancing, so the position
-# actuators (and, at the grasp waypoint, the friction grasp) have time to
-# converge before the target moves again. Grasp gets extra steps: closing
-# the jaws around the cube needs longer to settle than a free-space move (see
-# task-5-report.md for the tuning trace if this was widened further).
-ORACLE_SETTLE_STEPS = 12
-ORACLE_GRASP_SETTLE_STEPS = 20
+# actuators converge before the target moves again. The advance and grasp phases
+# get more: sliding the cube into the jaws and then closing a friction grasp on
+# it both need longer to settle than a free-space move.
+ORACLE_SETTLE_STEPS = 16
+ORACLE_GRASP_SETTLE_STEPS = 34

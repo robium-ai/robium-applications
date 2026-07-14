@@ -47,5 +47,36 @@
       <geom name="bin_wall_ny" type="box" size="0.06 0.005 0.03" pos="0 -0.055 0.03"
             rgba="0.8 0.2 0.2 1"/>
     </body>
+
+    <!-- Work surface (pedestal) under the cube-spawn square. NOT cosmetic, and
+         not a fudge to make the canary green: menagerie's scene puts the floor
+         at the ARM'S OWN BASE level, whereas a real SO-101 rig has the arm base
+         and the manipulanda on the SAME raised work surface. This restores the
+         geometry the arm was actually designed for.
+
+         Task 5 established why it is load-bearing. With the cube on the floor,
+         the 5-DOF arm can only reach the spawn square with its fingers pitched
+         ~32 deg BELOW horizontal, and at that pitch the fixed jaw's collision
+         mesh shaft (gripper-local z -0.106..-0.010) sweeps straight through the
+         cube's volume: the arm stalls (shoulder_lift/elbow_flex saturated at
+         their +-2.94 N*m forcerange) and the jaws close on empty air. Raising
+         the cube flattens the required reach, so the wrist can present the jaws
+         to the cube instead of diving onto it.
+
+         HEIGHT (0.06 m) was chosen by measurement, not taste — swept 0.06/0.07/
+         0.08/0.09/0.10/0.12/0.14 end-to-end through the real oracle. Higher is
+         NOT better: clearance keeps improving but the arm's reach flattens out
+         and the pick degrades (0.09 -> 3/10, 0.12/0.14 -> 0/10). 0.06 measured
+         best. Task 4's bin position and the +-0.035 clear-drop margin are
+         untouched (the bin stays on the floor, so the arm still has to lift the
+         cube UP off the pedestal and carry it DOWN into the bin -- the task did
+         not get easier, just physically possible).
+
+         Half-extent 0.09 in x/y comfortably contains the 10 cm spawn square
+         (half-extent 0.05) plus the cube's own 0.02 half-width, with margin. -->
+    <body name="pedestal" pos="0.32 -0.06 0">
+      <geom name="ped_top" type="box" size="0.09 0.09 0.03" pos="0 0 0.03"
+            rgba="0.55 0.55 0.6 1"/>
+    </body>
   </worldbody>
 </mujoco>

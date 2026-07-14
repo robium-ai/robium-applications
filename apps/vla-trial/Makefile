@@ -27,7 +27,9 @@ spike-policy-container:
 	docker run --rm -v $(PWD)/outputs:/app/outputs vla-trial-spike:latest
 
 # The day-1 canary. The oracle sees ground truth; anything but N/N is a bug.
-# CURRENTLY RED (0/10) — the SO-101 pincer cannot grasp menagerie's 4x6cm box.
-# See .superpowers/sdd/task-5-report.md before touching this.
+# Currently 10/10. Three things are load-bearing and coupled — the pedestal
+# (scene_pick.xml), the wrist-roll solve (so the jaws pinch HORIZONTALLY), and
+# the calibrated grasp offset. Changing any one without re-running the others'
+# sweeps quietly degrades the pick. See .superpowers/sdd/task-5-report.md.
 oracle:
 	uv run python -m vla_trial.run oracle 10
