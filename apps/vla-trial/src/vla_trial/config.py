@@ -7,6 +7,8 @@ values, so a hand-run stage and the pass-bar run can never drift apart.
 
 from pathlib import Path
 
+import numpy as np
+
 APP_ROOT = Path(__file__).resolve().parents[2]
 # Vendored menagerie dump (~18MB of binary STL meshes) — gitignored except
 # for scene_pick.xml (see apps/vla-trial/.gitignore), repopulated by
@@ -159,3 +161,51 @@ IK_MAX_ITERS = 200
 IK_TOL = 1e-4
 IK_DAMPING = 1e-3
 IK_STEP_SCALE = 1.0
+
+# --- oracle --------------------------------------------------------------
+# THE GRASP POINT. Empirically calibrated in Task 5, and NOT where you would
+# guess. The `gripperframe` site (EE_SITE) sits out near the fingertips, at
+# gripper-local (0.012, ~0, -0.098) — but the SO-101 does NOT hold a 4x4x6 cm
+# cube at its fingertips. The fingertips CONVERGE when closed (tip gap goes
+# 0.133 m open -> 0.004 m closed), so aiming them at the cube's centre asks
+# them to pass through solid cube: the fixed jaw's collision mesh shaft
+# (spanning gripper-local z -0.106..-0.010) then rams the cube, the arm stalls
+# with shoulder_lift/elbow_flex saturated at their +-2.94 N*m forcerange, and
+# the jaws close on empty air.
+#
+# The cube is actually held in the JAW THROAT, up near the jaw root. Found by
+# brute force, not by reading the MJCF: teleport the cube to candidate
+# gripper-local offsets, close the gripper, lift, and keep the offsets whose
+# cube came up with the arm. Holds were found at local (-0.02, 0, -0.030) and
+# (-0.02, 0, -0.040); the midpoint of that band is used here.
+ORACLE_GRASP_LOCAL = np.array([-0.02, 0.0, -0.035])
+
+# Fixed-point passes used to drive the THROAT (not the site) onto a target —
+# position-only IK leaves the wrist orientation free, so the site->throat
+# offset rotates with the solved pose and cannot be subtracted once.
+ORACLE_GRASP_CORRECTION_ITERS = 4
+
+# How far to back the pre-grasp off ALONG THE FINGER AXIS (not straight up).
+# The fingers point ~32 deg below horizontal, so a purely vertical descent
+# lands the fixed jaw's shaft on top of the cube; retreating along -finger_dir
+# keeps that shaft inside the volume the fingertips already swept through.
+ORACLE_STANDOFF = 0.08
+
+# Waypoint heights (metres, above the target's own z). APPROACH_HEIGHT clears
+# the bin's 0.03m walls and any pre-grasp fumbling; LIFT_HEIGHT is the hover
+# height used both to clear the table on the way to the bin AND as the
+# release height. Task 4's test_env.py drop test (real physics, not a probe)
+# already validated that releasing a free cube from directly above bin
+# center at z=0.15 settles into the bin and registers success within 5-12
+# control steps — so this LIFT_HEIGHT doing double duty as the release height
+# is a validated choice, not a guess.
+ORACLE_APPROACH_HEIGHT = 0.10
+ORACLE_LIFT_HEIGHT = 0.15
+
+# Control steps to hold at each waypoint before advancing, so the position
+# actuators (and, at the grasp waypoint, the friction grasp) have time to
+# converge before the target moves again. Grasp gets extra steps: closing
+# the jaws around the cube needs longer to settle than a free-space move (see
+# task-5-report.md for the tuning trace if this was widened further).
+ORACLE_SETTLE_STEPS = 12
+ORACLE_GRASP_SETTLE_STEPS = 20

@@ -40,6 +40,17 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
+    if cmd == "oracle":
+        from vla_trial.env.so101_pick import SO101PickEnv
+        from vla_trial.oracle.scripted_pick import rollout
+
+        env = SO101PickEnv()
+        n = int(rest[0]) if rest else 5
+        wins = sum(rollout(env, seed=s)["success"] for s in range(n))
+        env.close()
+        print(f"oracle: {wins}/{n} succeeded")
+        return 0 if wins == n else 1
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 

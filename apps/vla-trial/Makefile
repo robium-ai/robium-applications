@@ -1,4 +1,4 @@
-.PHONY: sync assets test clean spike-render spike-policy spike-policy-container
+.PHONY: sync assets test clean spike-render spike-policy spike-policy-container oracle
 
 sync:
 	uv sync
@@ -25,3 +25,9 @@ spike-policy:
 spike-policy-container:
 	docker build -f docker/spike.Dockerfile -t vla-trial-spike:latest .
 	docker run --rm -v $(PWD)/outputs:/app/outputs vla-trial-spike:latest
+
+# The day-1 canary. The oracle sees ground truth; anything but N/N is a bug.
+# CURRENTLY RED (0/10) — the SO-101 pincer cannot grasp menagerie's 4x6cm box.
+# See .superpowers/sdd/task-5-report.md before touching this.
+oracle:
+	uv run python -m vla_trial.run oracle 10
