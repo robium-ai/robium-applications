@@ -35,11 +35,14 @@ benchmark exists. It does now.
 and not a cached action-chunk lookup. Reproduce with `make spike-policy` and
 `make spike-policy-container`; raw data in `outputs/spike/policy.json`.
 
-| Config | mean | median | p95 | min–max | vs 1 s ceiling |
-| --- | --- | --- | --- | --- | --- |
-| **MPS, native** (uv, Apple Silicon) | **0.536 s** | 0.536 s | 0.543 s | 0.527–0.547 | **PASS** (~2x headroom) |
-| **CPU, native** (uv, Apple Silicon) | **9.186 s** | 9.137 s | 9.399 s | 8.992–9.652 | FAIL (9.2x over) |
-| **CPU, linux/arm64 container** | **9.318 s** | 9.258 s | 9.621 s | 9.098–9.974 | **FAIL (9.3x over)** |
+| Config | mean | median | p95 | vs 1 s ceiling |
+| --- | --- | --- | --- | --- |
+| **MPS, native** (uv, Apple Silicon) | **0.536 s** | 0.536 s | 0.543 s | **PASS** (~2x headroom) |
+| **CPU, native** (uv, Apple Silicon) | **9.004 s** | 8.953 s | 9.244 s | FAIL (9.0x over) |
+| **CPU, linux/arm64 container** | **9.318 s** | 9.258 s | 9.621 s | **FAIL (9.3x over)** |
+
+Native CPU was measured three independent times (9.159 / 9.186 / 9.004 s mean) —
+the result is stable to within ~2%, so the verdict does not hinge on one run.
 
 Bar is `POLICY_LATENCY_CEILING_S = 1.0` s, not 30 Hz: action chunking means one
 forward pass yields ~50 actions ≈ 1.7 s of robot motion at 30 FPS.
@@ -48,8 +51,8 @@ forward pass yields ~50 actions ≈ 1.7 s of robot motion at 30 FPS.
 (the container logs `No accelerated backend detected. Using default cpu`), and
 Cloud Run has no GPU — so the deployed demo is CPU-in-a-container *both* locally
 and in production. Containerising costs almost nothing over native CPU
-(9.32 s vs 9.19 s, +1.4%): the penalty is **not** the container, it is the
-**absence of MPS**. MPS is 17x faster than CPU on the same machine.
+(9.32 s vs ~9.0–9.2 s, a few percent): the penalty is **not** the container, it
+is the **absence of MPS**. MPS is ~17x faster than CPU on the same machine.
 
 ### M0 verdict: local CPU inference is dead
 

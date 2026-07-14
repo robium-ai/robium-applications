@@ -27,7 +27,6 @@ from vla_trial.config import (
     IMG_W,
     N_JOINTS,
     POLICY_SPIKE_JSON,
-    SPIKE_OUTPUT_DIR,
     TASK,
 )
 
@@ -85,7 +84,19 @@ def _dummy_batch(policy, device: str) -> dict:
     return batch
 
 
-def bench_policy(device: str = "cpu", n_passes: int = 20) -> dict:
+def bench_policy(
+    device: str = "cpu",
+    n_passes: int = 20,
+    output_json: Path | None = None,
+) -> dict:
+    """Time ``n_passes`` real SmolVLA forward passes on ``device``.
+
+    ``output_json`` defaults to ``POLICY_SPIKE_JSON`` (the canonical M0
+    artifact). The TEST must pass a tmp path: a 3-pass unit-test run writing
+    into the canonical file would silently overwrite the real 20-pass
+    benchmark with a throwaway number — which it did, once, before this
+    parameter existed.
+    """
     from lerobot.policies import make_pre_post_processors
     from lerobot.policies.smolvla.modeling_smolvla import SmolVLAPolicy
 
@@ -135,10 +146,11 @@ def bench_policy(device: str = "cpu", n_passes: int = 20) -> dict:
         "timings_s": timings,
     }
 
-    SPIKE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out = POLICY_SPIKE_JSON if output_json is None else output_json
+    out.parent.mkdir(parents=True, exist_ok=True)
     existing = {}
-    if POLICY_SPIKE_JSON.is_file():
-        existing = json.loads(POLICY_SPIKE_JSON.read_text())
+    if out.is_file():
+        existing = json.loads(out.read_text())
     existing[f"{device}-{runtime}"] = result
-    POLICY_SPIKE_JSON.write_text(json.dumps(existing, indent=2))
+    out.write_text(json.dumps(existing, indent=2))
     return result
