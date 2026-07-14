@@ -1,0 +1,26 @@
+[project]
+name = "vla-trial"
+version = "0.1.0"
+description = "Language-conditioned VLA control of a simulated SO-101 arm"
+readme = "README.md"
+authors = [{ name = "Al Jazari", email = "jazarium@gmail.com" }]
+# LeRobot 0.6.0 hard-requires >=3.12.
+requires-python = ">=3.12"
+dependencies = [
+    "lerobot[smolvla,training]==0.6.0",
+    # >=3.1.3 is the menagerie SO-101 floor. Never let gym-hil/gym-aloha
+    # (mujoco<3.9) or gym-xarm (mujoco<3.0) into this tree — they downgrade it.
+    "mujoco>=3.10.0",
+    "gymnasium>=1.0.0",
+    # Pinned exactly: matches robium's rerun skill and the gradio_rerun
+    # component Part 2 depends on.
+    "rerun-sdk==0.34.1",
+    "numpy>=1.26",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.8,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest>=9.1.1"]

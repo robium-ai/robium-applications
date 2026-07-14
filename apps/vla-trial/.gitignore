@@ -1,0 +1,13 @@
+# Vendored mujoco_menagerie SO-101 asset (~18MB of binary STL meshes).
+# Re-fetched by `make assets` (scripts/fetch_assets.sh); never committed.
+# scene_pick.xml is OUR file (adds the missing "scene" camera) and must
+# stay tracked even though it lives in this directory — see config.py.
+src/vla_trial/env/assets/*
+!src/vla_trial/env/assets/scene_pick.xml
+
+.venv/
+outputs/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/

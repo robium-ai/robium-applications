@@ -1,0 +1,19 @@
+<mujoco model="scene_pick">
+  <!-- Our own file, tracked in git via a .gitignore negation (this directory
+       is otherwise the vendored menagerie dump — ~18MB of binary STL meshes,
+       repopulated by `make assets` and NOT committed). It must live
+       alongside scene_box.xml: MuJoCo resolves <include> and mesh paths
+       relative to the including file's own directory, so this cannot move
+       up a level without breaking so101.xml's mesh references.
+
+       The vendored scene_box.xml ships only a wrist-mounted camera; it has
+       no third-person overview camera at all. Rather than edit the vendored
+       XML in place (which would break `make assets`' idempotency), this file
+       includes it unmodified and adds the missing "scene" camera here. -->
+  <include file="scene_box.xml"/>
+
+  <worldbody>
+    <!-- Fixed third-person view of the workspace, always aimed at the box. -->
+    <camera name="scene" mode="targetbody" target="box" pos="0.9 -0.9 0.7"/>
+  </worldbody>
+</mujoco>
