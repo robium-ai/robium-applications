@@ -13,7 +13,39 @@
   <include file="scene_box.xml"/>
 
   <worldbody>
-    <!-- Fixed third-person view of the workspace, always aimed at the box. -->
-    <camera name="scene" mode="targetbody" target="box" pos="0.9 -0.9 0.7"/>
+    <!-- Fixed third-person view of the workspace, statically aimed at the
+         cube-spawn/bin area's midpoint. Originally mode="targetbody"
+         target="box", but that mode re-runs MuJoCo's camera-tracking
+         SMOOTHING FILTER on every update_scene() call, so its pose is
+         call-history-dependent even when the physics state is bit-identical
+         (confirmed empirically: env.reset(seed=X) twice in a row produced
+         non-bit-identical "scene" frames -- up to 16-85 LSB drift over ~17%
+         of pixels -- purely from this camera's dynamic tracking; the
+         "fixed"-mode wrist_cam was always exactly reproducible). A static
+         xyaxes orientation, computed once, has none of that: it is plain
+         forward kinematics like wrist_cam, so it renders bit-identically
+         for identical qpos. xyaxes derived from pos=(0.9,-0.9,0.7) looking
+         at (0.335,0.05,0.05) -- the midpoint of CUBE_SPAWN_CENTER and the
+         bin's center -- with world +z as up. -->
+    <camera name="scene" pos="0.9 -0.9 0.7"
+            xyaxes="0.859482 0.511166 -0.000000 -0.259116 0.435682 0.861998"/>
+
+    <!-- Open-top bin: the "in the bin" half of the task. Static (no freejoint) so
+         it cannot be knocked around. Walls are thin to keep contacts cheap.
+         pos is a starting guess from the task brief; validated (and, if needed,
+         moved) by Step 3a's IK reachability probe -- see config.py comment on
+         CUBE_SPAWN_CENTER and the task-4 report for the final coordinates. -->
+    <body name="bin" pos="0.35 0.16 0.0">
+      <geom name="bin_floor" type="box" size="0.06 0.06 0.005" pos="0 0 0.005"
+            rgba="0.8 0.2 0.2 1"/>
+      <geom name="bin_wall_px" type="box" size="0.005 0.06 0.03" pos="0.055 0 0.03"
+            rgba="0.8 0.2 0.2 1"/>
+      <geom name="bin_wall_nx" type="box" size="0.005 0.06 0.03" pos="-0.055 0 0.03"
+            rgba="0.8 0.2 0.2 1"/>
+      <geom name="bin_wall_py" type="box" size="0.06 0.005 0.03" pos="0 0.055 0.03"
+            rgba="0.8 0.2 0.2 1"/>
+      <geom name="bin_wall_ny" type="box" size="0.06 0.005 0.03" pos="0 -0.055 0.03"
+            rgba="0.8 0.2 0.2 1"/>
+    </body>
   </worldbody>
 </mujoco>

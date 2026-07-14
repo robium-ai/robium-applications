@@ -83,3 +83,24 @@ TASK = "put the green cube in the bin"
 CUBE_BODY = "box"
 BIN_BODY = "bin"
 EE_SITE = "gripperframe"
+
+# --- env -------------------------------------------------------------------
+CONTROL_FPS = 30  # SmolVLA's pretraining corpus is standardized to 30 FPS.
+MAX_EPISODE_STEPS = 300  # 10 s at 30 FPS.
+
+# THE constraint. Spec §5: 50 episodes over a 30 cm workspace is a documented
+# outright failure ("learned the general motion but couldn't pin down grasp
+# locations"); 75 episodes over ~10 cm gives 60-80%. Density beats count.
+# Half-extent 0.05 m => a 10 cm x 10 cm spawn square.
+#
+# The CENTRE below is a starting guess and MUST be validated by Step 3a's
+# reachability check — every corner of the spawn square has to be IK-reachable,
+# or episodes will fail for a reason that has nothing to do with the policy.
+# The cube's z is its half-height (0.03), so it rests on the floor.
+CUBE_SPAWN_CENTER = (0.32, -0.06, 0.03)
+CUBE_SPAWN_HALF_EXTENT = 0.05
+
+# Success = the cube is inside the bin's footprint and low enough to be resting
+# in it rather than being carried above it. Bin inner half-width is 0.055.
+SUCCESS_XY_TOL = 0.05
+SUCCESS_Z_MAX = 0.06
