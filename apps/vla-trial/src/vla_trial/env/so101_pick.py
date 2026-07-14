@@ -22,8 +22,10 @@ from vla_trial.config import (
     BIN_BODY,
     CONTROL_FPS,
     CUBE_BODY,
+    CUBE_GEOM,
     CUBE_SPAWN_CENTER,
     CUBE_SPAWN_HALF_EXTENT,
+    GRIPPER_GEOMS,
     IMG_H,
     IMG_W,
     MAX_EPISODE_STEPS,
@@ -83,6 +85,27 @@ class SO101PickEnv(gym.Env):
         # by the success predicate's at-rest check.
         self._cube_vadr = self.model.jnt_dofadr[self.model.body_jntadr[self._cube_bid]]
 
+        # Geom ids for the success predicate's release check (see
+        # `_is_released`). Resolved once here, not per-step.
+        self._cube_geom_id = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_GEOM, CUBE_GEOM
+        )
+        self._gripper_geom_ids = frozenset(
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name)
+            for name in GRIPPER_GEOMS
+        )
+        if self._cube_geom_id < 0 or -1 in self._gripper_geom_ids:
+            missing_gripper = [
+                name
+                for name in GRIPPER_GEOMS
+                if mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_GEOM, name) < 0
+            ]
+            raise RuntimeError(
+                f"scene is missing the cube geom {CUBE_GEOM!r} (found: "
+                f"{self._cube_geom_id >= 0}) or gripper geoms {missing_gripper!r} "
+                "— did the vendored SO-101 asset change its geom names?"
+            )
+
         # Structural guarantee behind `_obs()`'s `qpos[:N_JOINTS]` slice (see
         # docstring above): this is what actually keeps the cube's ground-truth
         # pose out of the policy's observation. It holds today only because the
@@ -90,13 +113,15 @@ class SO101PickEnv(gym.Env):
         # the MJCF. A future scene edit that inserts a body/joint before the cube
         # would silently shift this and leak ground truth into `observation.state`
         # — assert it here so that edit fails loudly at construction instead.
-        assert self._cube_qadr >= N_JOINTS, (
-            f"cube qpos address ({self._cube_qadr}) is before N_JOINTS ({N_JOINTS}) "
-            "— qpos[:N_JOINTS] would leak the cube's ground-truth pose into "
-            "observation.state. A body/joint was inserted before the cube in the "
-            "scene (or N_JOINTS grew to include it); fix the scene ordering or "
-            "revisit this invariant deliberately."
-        )
+        if self._cube_qadr < N_JOINTS:
+            raise RuntimeError(
+                f"cube qpos address ({self._cube_qadr}) is before N_JOINTS "
+                f"({N_JOINTS}) — qpos[:N_JOINTS] would leak the cube's "
+                "ground-truth pose into observation.state. A body/joint was "
+                "inserted before the cube in the scene (or N_JOINTS grew to "
+                "include it); fix the scene ordering or revisit this invariant "
+                "deliberately."
+            )
 
         self._steps = 0
         self._settle_steps = 0
@@ -184,16 +209,37 @@ class SO101PickEnv(gym.Env):
         self._renderer.update_scene(self.data, camera=camera)
         return self._renderer.render()
 
+    def _is_released(self) -> bool:
+        """True iff the cube geom has no active contact with any gripper geom
+        (fixed or moving jaw — see GRIPPER_GEOMS). Position and speed alone
+        can't tell "held" from "let go": a cube lowered slowly enough drifts
+        through the in-zone/at-rest window while still fully grasped (this
+        was the Finding 1 bug — see config.py's GRIPPER_GEOMS comment).
+        Contact against the gripper's own geoms is the only signal that
+        actually distinguishes the two."""
+        cube_gid = self._cube_geom_id
+        gripper_gids = self._gripper_geom_ids
+        for i in range(self.data.ncon):
+            contact = self.data.contact[i]
+            g1, g2 = contact.geom1, contact.geom2
+            if (g1 == cube_gid and g2 in gripper_gids) or (
+                g2 == cube_gid and g1 in gripper_gids
+            ):
+                return False
+        return True
+
     def _in_zone_and_at_rest(self) -> bool:
-        """XY+Z zone check AND a genuine at-rest check (linear speed below
-        threshold) for the CURRENT physics step only. Does not by itself imply
-        success — see `_is_success`'s debounce."""
+        """XY+Z zone check, a genuine at-rest check (linear speed below
+        threshold), AND a release check (no contact with any gripper geom)
+        for the CURRENT physics step only. Does not by itself imply success
+        — see `_is_success`'s debounce."""
         cube, bin_ = self.cube_pos, self.bin_pos
         in_xy = np.linalg.norm(cube[:2] - bin_[:2]) < SUCCESS_XY_TOL
         low = cube[2] < SUCCESS_Z_MAX
         speed = float(np.linalg.norm(self.data.qvel[self._cube_vadr : self._cube_vadr + 3]))
         at_rest = speed < SUCCESS_MAX_SPEED
-        return bool(in_xy and low and at_rest)
+        released = self._is_released()
+        return bool(in_xy and low and at_rest and released)
 
     def _is_success(self) -> bool:
         # The bin's walls are shallow (wall height ~= cube half-height), so a

@@ -116,6 +116,40 @@ SUCCESS_Z_MAX = 0.06
 SUCCESS_SETTLE_STEPS = 5
 SUCCESS_MAX_SPEED = 0.05  # m/s, cube linear speed threshold to count as "at rest".
 
+# Position and speed alone can't tell "held" from "let go": a cube lowered
+# slowly enough (descent speed < SUCCESS_MAX_SPEED) drifts through the
+# in-zone/at-rest window while STILL fully grasped -- traversing
+# SUCCESS_Z_MAX down to resting height at ~0.03 m/s takes ~19 control steps,
+# far more than SUCCESS_SETTLE_STEPS needs to accumulate. Contact against the
+# gripper's own collision geoms is the only signal that actually
+# distinguishes "held" from "released", so success also requires NO contact
+# between the cube geom and any of these. (A bin_floor-contact check was
+# considered instead but rejected: a cube can be set down flush on the floor
+# while the jaws are still closed around it, which would pass a
+# floor-contact check while still being grasped.)
+# Names are so101.xml's `collision_gripper`-class geoms (fixed + moving jaw).
+GRIPPER_GEOMS = (
+    "fixed_jaw_box1",
+    "fixed_jaw_box2",
+    "fixed_jaw_box3",
+    "fixed_jaw_box4",
+    "fixed_jaw_box5",
+    "fixed_jaw_box6",
+    "fixed_jaw_box7",
+    "fixed_jaw_sph_tip1",
+    "fixed_jaw_sph_tip2",
+    "fixed_jaw_sph_tip3",
+    "moving_jaw_box1",
+    "moving_jaw_box2",
+    "moving_jaw_box3",
+    "moving_jaw_sph_tip1",
+    "moving_jaw_sph_tip2",
+    "moving_jaw_sph_tip3",
+)
+# The cube's GEOM name (as opposed to CUBE_BODY, its body name) -- MuJoCo
+# keeps geom and body names in separate namespaces, so both happen to be "box".
+CUBE_GEOM = "box"
+
 # --- ik ----------------------------------------------------------------
 # Damped-least-squares IK hyperparameters (env/ik.py's solve_ik). Project
 # rule: run parameters live in config.py, not hardcoded in the solver — the

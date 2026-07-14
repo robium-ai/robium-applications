@@ -96,7 +96,17 @@ def test_bin_footprint_is_reachable_at_lift_heights(offset, lift_z):
     """The bin's footprint (center + all four corners) must be IK-reachable at
     several lift heights, not just at table height — this is the exact check
     that found the (0.35, 0.22, 0.0) placement's far-corner failure at lift
-    height and led to moving the bin to (0.35, 0.16, 0.0)."""
+    height and led to moving the bin to (0.35, 0.16, 0.0).
+
+    IMPORTANT — reachable is NOT the same as "safe to release at": this test
+    checks IK reach to the bin's full +-0.055 (inner-wall) footprint, but the
+    Task 4 fix's physics-driven drop test found that releasing the cube at
+    +-0.04 from bin center PERCHES it on the rim (final z=0.0899, not a
+    success) instead of dropping it in. The measured clear-drop margin is
+    +-0.035, not +-0.055 — the scripted oracle (next task) should aim its
+    release point near bin center, well inside this reachability envelope,
+    not out at these corners.
+    """
     dx, dy = offset
     target = (_BIN_X + dx, _BIN_Y + dy, lift_z)
     err = _residual(_model, _data, target)

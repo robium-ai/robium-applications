@@ -30,8 +30,6 @@ from vla_trial.config import (
     IK_TOL,
 )
 
-N_ARM_JOINTS = IK_N_ARM_JOINTS  # shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll.
-
 
 def solve_ik(
     model: mujoco.MjModel,
@@ -57,8 +55,8 @@ def solve_ik(
     scratch.qpos[:] = data.qpos
     scratch.qvel[:] = 0.0
 
-    jnt_lo = model.jnt_range[:N_ARM_JOINTS, 0]
-    jnt_hi = model.jnt_range[:N_ARM_JOINTS, 1]
+    jnt_lo = model.jnt_range[:IK_N_ARM_JOINTS, 0]
+    jnt_hi = model.jnt_range[:IK_N_ARM_JOINTS, 1]
 
     jacp = np.zeros((3, model.nv))
     for _ in range(max_iters):
@@ -68,14 +66,14 @@ def solve_ik(
             break
 
         mujoco.mj_jacSite(model, scratch, jacp, None, site_id)
-        j = jacp[:, :N_ARM_JOINTS]
+        j = jacp[:, :IK_N_ARM_JOINTS]
 
         # Damped least squares: dq = J^T (J J^T + lambda^2 I)^-1 err.
         jjt = j @ j.T + (damping**2) * np.eye(3)
         dq = j.T @ np.linalg.solve(jjt, err)
 
-        scratch.qpos[:N_ARM_JOINTS] = np.clip(
-            scratch.qpos[:N_ARM_JOINTS] + step_scale * dq, jnt_lo, jnt_hi
+        scratch.qpos[:IK_N_ARM_JOINTS] = np.clip(
+            scratch.qpos[:IK_N_ARM_JOINTS] + step_scale * dq, jnt_lo, jnt_hi
         )
 
-    return scratch.qpos[:N_ARM_JOINTS].copy()
+    return scratch.qpos[:IK_N_ARM_JOINTS].copy()
