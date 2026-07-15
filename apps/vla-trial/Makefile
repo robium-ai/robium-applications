@@ -1,4 +1,4 @@
-.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle
 
 sync:
 	uv sync
@@ -43,3 +43,8 @@ spike-policy-container:
 # sweeps quietly degrades the pick. See .superpowers/sdd/task-5-report.md.
 oracle:
 	uv run python -m vla_trial.run oracle 10
+
+# Task 6: one oracle episode (seed 0), logged to a Rerun .rrd for eyeballing.
+# open with: uv run rerun outputs/viz/oracle.rrd
+viz-oracle:
+	uv run python -m vla_trial.run viz-oracle

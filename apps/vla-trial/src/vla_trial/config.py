@@ -37,6 +37,9 @@ SPIKE_OUTPUT_DIR = APP_ROOT / "outputs" / "spike"
 RENDER_SPIKE_JSON = SPIKE_OUTPUT_DIR / "render.json"
 POLICY_SPIKE_JSON = SPIKE_OUTPUT_DIR / "policy.json"
 
+# Task 6: where RerunLogger recordings (.rrd) land.
+VIZ_DIR = APP_ROOT / "outputs" / "viz"
+
 # M0 gate: the render rate the sim must clear for a laptop demo to be viable.
 # One control step renders 2 cameras; at 30 FPS sim that is 60 renders/sec.
 RENDER_FPS_FLOOR = 60.0

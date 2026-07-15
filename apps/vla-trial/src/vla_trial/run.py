@@ -51,6 +51,21 @@ def main(argv: list[str] | None = None) -> int:
         print(f"oracle: {wins}/{n} succeeded")
         return 0 if wins == n else 1
 
+    if cmd == "viz-oracle":
+        from vla_trial.config import VIZ_DIR
+        from vla_trial.env.so101_pick import SO101PickEnv
+        from vla_trial.oracle.scripted_pick import rollout
+        from vla_trial.viz.rerun_logger import RerunLogger
+
+        env = SO101PickEnv()
+        logger = RerunLogger(app_id="vla_trial_oracle", save_path=VIZ_DIR / "oracle.rrd")
+        result = rollout(env, seed=0, logger=logger)
+        logger.close()
+        env.close()
+        print(f"oracle seed 0: success={result['success']} steps={result['n_steps']}")
+        print(f"open with: rerun {VIZ_DIR / 'oracle.rrd'}")
+        return 0
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 
