@@ -47,6 +47,24 @@ def test_remote_never_targets_a_local_device():
         assert "--policy.device=cpu" not in cmd
 
 
+def test_remote_output_dir_is_not_a_local_path():
+    """--output_dir is passed verbatim to the remote container.
+
+    A local absolute path (APP_ROOT / this machine's home) makes the remote job
+    train fully and then crash at checkpoint save with PermissionError: '/Users'.
+    Regression guard for that exact bug — the remote output_dir must not point
+    at this machine.
+    """
+    import os
+
+    home = os.path.expanduser("~")
+    for pipe_test in (True, False):
+        cmd = " ".join(train_remote_cmd(pipe_test=pipe_test))
+        assert home not in cmd, "remote --output_dir leaks a local home path"
+        assert "/Users/" not in cmd
+        assert "--output_dir=/tmp/" in cmd
+
+
 def test_pipe_test_and_full_differ_in_steps():
     """The cheap run and the real run must not be accidentally identical."""
     pipe = " ".join(train_remote_cmd(pipe_test=True))

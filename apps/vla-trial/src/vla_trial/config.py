@@ -277,6 +277,15 @@ TRAIN_SMOKE_STEPS = 5
 TRAIN_SMOKE_BATCH_SIZE = 2
 
 TRAIN_OUTPUT_DIR = APP_ROOT / "outputs" / "train" / "smolvla_so101"
+
+# CRITICAL: --output_dir is passed VERBATIM to the remote HF Jobs container, so
+# it must be a path that exists/is writable THERE, not a local macOS path. The
+# first pipe-test run trained all 2000 steps fine, then crashed at checkpoint
+# save with `PermissionError: '/Users'` because it was handed this machine's
+# absolute TRAIN_OUTPUT_DIR. The Hub-pushed checkpoint is the real artifact
+# (--policy.push_to_hub), so the remote dir just needs to be scratch that
+# exists on any Linux container. A plain string, never APP_ROOT.
+REMOTE_OUTPUT_DIR = "/tmp/vla_train/smolvla_so101"
 TRAIN_SMOKE_OUTPUT_DIR = APP_ROOT / "outputs" / "train" / "smolvla_so101_smoke"
 
 
@@ -371,7 +380,9 @@ def train_remote_cmd(pipe_test: bool = True) -> list[str]:
         )
     else:
         steps, batch, target = TRAIN_STEPS, TRAIN_BATCH_SIZE, TRAIN_JOB_TARGET
-    return _train_base_args(steps, batch, TRAIN_OUTPUT_DIR) + [
+    # REMOTE_OUTPUT_DIR (a container path), not TRAIN_OUTPUT_DIR (this Mac) —
+    # output_dir is passed verbatim to the remote job. See REMOTE_OUTPUT_DIR.
+    return _train_base_args(steps, batch, REMOTE_OUTPUT_DIR) + [
         f"--policy.repo_id={POLICY_REPO_ID}",
         "--policy.push_to_hub=true",
         f"--job.target={target}",  # any non-local value submits to HF Jobs
