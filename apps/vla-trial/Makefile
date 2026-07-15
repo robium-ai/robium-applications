@@ -1,4 +1,4 @@
-.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check train-smoke train train-full
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check train-smoke train train-full eval smoke
 
 sync:
 	uv sync
@@ -78,3 +78,16 @@ train:
 
 train-full:
 	uv run python -m vla_trial.run train full
+
+# Task 9: roll a checkpoint out in sim and score it. Defaults to POLICY_REPO_ID
+# (the Hub fine-tune); pass a path/repo_id to eval something else, e.g.:
+#   make eval CKPT=outputs/train/smolvla_so101_smoke/checkpoints/000005/pretrained_model
+eval:
+	uv run python -m vla_trial.run eval $(CKPT)
+
+# Task 9 PIPE-TEST pass bar: proves the eval pipeline runs end to end (loads
+# the local 5-step smoke checkpoint, rolls out N episodes, writes
+# eval_info.json with a numeric success_rate). NOT the >=60% score bar — the
+# real fine-tune (SUCCESS_RATE_FLOOR) hasn't run yet; see tests/test_smoke.py.
+smoke:
+	uv run pytest tests/test_smoke.py -v -m slow

@@ -126,6 +126,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"submitting {kind} fine-tune to HF Jobs:\n  {' '.join(cmd_argv)}")
         return subprocess.run(cmd_argv).returncode
 
+    if cmd == "eval":
+        from vla_trial.config import POLICY_REPO_ID, SMOKE_EVAL_EPISODES, SUCCESS_RATE_FLOOR
+        from vla_trial.policy.evaluate import evaluate
+
+        policy = rest[0] if rest else POLICY_REPO_ID
+        result = evaluate(policy_path=policy, n_episodes=SMOKE_EVAL_EPISODES)
+        return 0 if result["success_rate"] >= SUCCESS_RATE_FLOOR else 1
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 

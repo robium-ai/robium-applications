@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import torch
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 # Vendored menagerie dump (~18MB of binary STL meshes) — gitignored except
@@ -321,6 +322,41 @@ def train_smoke_cmd() -> list[str]:
         "--policy.push_to_hub=false",
         f"--save_freq={TRAIN_SMOKE_STEPS}",
     ]
+
+
+# --- eval --------------------------------------------------------------
+# Task 9. Written against the local 5-step smoke checkpoint (Task 8) as a
+# PIPE-TEST: the real 20k-step fine-tune hasn't run yet (blocked on HF Jobs
+# credits), so this is the only checkpoint that exists. tests/test_smoke.py
+# asserts pipeline MECHANICS on it (loads, rolls out N episodes, writes
+# eval_info.json with a numeric success_rate) — NOT the score. See that
+# file's docstring for why SUCCESS_RATE_FLOOR is not asserted there.
+SMOKE_EVAL_EPISODES = 10
+
+# THE bar, for later use once the real 20k-step Hub checkpoint exists. 75 eps
+# / ~10 cm workspace produced 60-80% in the reference run; the bottom of that
+# band is honest without being flaky. Not asserted by the current pipe-test
+# smoke test — see tests/test_smoke.py.
+SUCCESS_RATE_FLOOR = 0.60
+
+EVAL_OUTPUT_DIR = APP_ROOT / "outputs" / "eval"
+SMOKE_EVAL_OUTPUT_DIR = EVAL_OUTPUT_DIR / "smoke"
+
+# Local training-loop-start checkpoint (Task 8, TRAIN_SMOKE_STEPS steps on
+# CPU) — essentially the base model, not a trained policy. The only
+# checkpoint that exists before the real HF Jobs fine-tune runs; used to
+# validate the eval pipeline mechanics. Expected to score ~0%.
+SMOKE_CHECKPOINT_PATH = (
+    TRAIN_SMOKE_OUTPUT_DIR / "checkpoints" / "000005" / "pretrained_model"
+)
+
+# Set from the M0 spike (Task 3): "cpu" unless MPS measurably wins AND the
+# deployment target is native (not the container — Docker/macOS has no MPS).
+# Auto-detects MPS availability; VLA_DEVICE overrides for a deliberate choice
+# (e.g. forcing "cpu" to match the container/deployment target).
+INFERENCE_DEVICE = os.environ.get(
+    "VLA_DEVICE", "mps" if torch.backends.mps.is_available() else "cpu"
+)
 
 
 def train_remote_cmd(pipe_test: bool = True) -> list[str]:
