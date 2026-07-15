@@ -88,10 +88,15 @@ def _busy() -> bool:
 
 @app.post("/start")
 def start(session: str | None = None):
-    # A claim is sacred only while a run executes; an idle claim is takeable
-    # (page-reload semantics, same as nav-trial).
+    # Claims are ALWAYS takeable here, even mid-run: a page refresh generates
+    # a new session id while Gradio keeps executing the orphaned episode —
+    # nav-trial can 503 and let Cloud Run route the retry to a fresh
+    # instance, but locally this is the only instance, so the refresh must
+    # win. Foreign takeover aborts the in-flight run (next control step).
+    # v1-local tradeoff, stated honestly: a second visitor can steal the
+    # instance; the cloud version needs liveness-based claims instead.
     if _busy() and session != state["session"]:
-        return JSONResponse({"error": "busy"}, status_code=503)
+        state["runner"].request_abort()
     if session != state["session"]:
         state["claimed_at"] = time.time()
     state["session"] = session or "anonymous"

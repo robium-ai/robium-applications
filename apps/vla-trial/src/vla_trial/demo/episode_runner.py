@@ -69,6 +69,7 @@ class StepEvent:
     total: int
     done: bool = False
     success: bool = False
+    aborted: bool = False
 
 
 class EpisodeRunner:
@@ -110,6 +111,7 @@ class EpisodeRunner:
         probe.close()
 
         self._lock = threading.Lock()
+        self._abort = threading.Event()
         self._oracle_seeds = itertools.cycle(DEMO_ORACLE_SEEDS)
         self._trained_counter = itertools.count()
 
@@ -117,12 +119,25 @@ class EpisodeRunner:
     def busy(self) -> bool:
         return self._lock.locked()
 
+    def request_abort(self) -> None:
+        """Stop the in-flight episode at its next control step.
+
+        Exists for the page-refresh path: a browser refresh generates a NEW
+        session id while Gradio keeps executing the orphaned run — which
+        holds the lock and would block the reclaimed instance for the rest
+        of the episode. The gateway calls this when a fresh session claims.
+        """
+        self._abort.set()
+
     def run(self, controller: str, instruction: str, rec: rr.RecordingStream):
         """Generator: one episode, yielding a StepEvent after each step."""
         if controller not in CONTROLLERS:
             raise ValueError(f"unknown controller {controller!r}")
-        if not self._lock.acquire(blocking=False):
+        # Wait, don't fail: an aborted predecessor exits within one control
+        # step (or one CPU forward pass, ~9 s) — a short wait absorbs that.
+        if not self._lock.acquire(timeout=30):
             raise RuntimeError("a run is already in progress")
+        self._abort.clear()  # any pending abort was aimed at the previous run
         try:
             yield from self._run_locked(controller, instruction, rec)
         finally:
@@ -149,6 +164,9 @@ class EpisodeRunner:
             success = False
             step = 0
             for step in range(MAX_EPISODE_STEPS):
+                if self._abort.is_set():
+                    yield StepEvent(step=step, total=MAX_EPISODE_STEPS, done=True, aborted=True)
+                    return
                 if oracle is not None:
                     action = oracle.act(obs)
                 else:

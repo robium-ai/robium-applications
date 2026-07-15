@@ -93,6 +93,17 @@ def test_intruder_session_rejected(gateway):
     assert code == 403
 
 
+def test_refresh_reclaims_claim(gateway):
+    # A page refresh mints a NEW session id; /start must take the claim over
+    # (and would abort an in-flight run) — the previous session then 409s.
+    code, body = _http("POST", "/start?session=carol")
+    assert code == 200 and body["ok"] is True
+    code, st = _http("GET", "/status?session=carol")
+    assert code == 200 and st["claimed"] is True
+    code, _ = _http("GET", "/status?session=alice")
+    assert code == 409
+
+
 def test_oracle_episode_succeeds_via_gradio_api(gateway):
     code, sub = _http(
         "POST",
@@ -121,7 +132,8 @@ def test_oracle_episode_succeeds_via_gradio_api(gateway):
 
 
 def test_shutdown_exits_process(gateway):
-    code, body = _http("POST", "/shutdown?session=alice")
+    # carol holds the claim after the reclaim test above.
+    code, body = _http("POST", "/shutdown?session=carol")
     assert code == 200 and body["bye"] is True
     deadline = time.time() + 10
     while time.time() < deadline and gateway.poll() is None:

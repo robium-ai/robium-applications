@@ -76,7 +76,9 @@ def build_ui(get_runner) -> gr.Blocks:
                 if ev.step % 50 == 0 or ev.done:
                     print(f"[demo] step {ev.step} done={ev.done} success={ev.success}", flush=True)
                 if ev.done:
-                    if ev.success:
+                    if ev.aborted:
+                        verdict = "⏹ aborted — the instance was reclaimed (page refresh or new visitor)"
+                    elif ev.success:
                         verdict = "✅ cube in the bin"
                     elif controller == "trained":
                         verdict = "❌ no success — expected for the pipe-test checkpoint (see the note above)"
