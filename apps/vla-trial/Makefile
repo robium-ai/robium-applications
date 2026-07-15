@@ -71,8 +71,9 @@ train-smoke:
 	uv run python -m vla_trial.run train-smoke
 
 # Task 8: submit the fine-tune to HF Jobs. Default is the CHEAP PIPE-TEST run
-# (2k steps, a10g-small, ~$2-4) that proves the remote loop end-to-end. The real
-# 20k-step run is `make train-full` — a separate, deliberate spend.
+# (PIPE_TEST_STEPS — currently 100 steps, a10g-small, ~$1) that proves the
+# remote loop end-to-end. The real 20k-step run is `make train-full` (~$20-40)
+# — a separate, deliberate spend. See config.py for the current step count.
 train:
 	uv run python -m vla_trial.run train
 
