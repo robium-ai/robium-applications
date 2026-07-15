@@ -16,6 +16,11 @@ numeric success_rate. That is the whole deliverable for this task — proving
 record -> train -> eval closes before the real fine-tune exists to grade.
 
 Marked `slow`: it loads the 450M SmolVLA checkpoint. Run via `make smoke`.
+
+TODO(task-9-followup): once the real 20k-step Hub fine-tune exists, repoint
+this test from SMOKE_CHECKPOINT_PATH to POLICY_REPO_ID and assert
+`result["success_rate"] >= SUCCESS_RATE_FLOOR` — turning this from a
+pipeline-mechanics check into the real score bar.
 """
 
 import json

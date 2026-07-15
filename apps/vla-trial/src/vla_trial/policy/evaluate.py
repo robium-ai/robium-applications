@@ -100,31 +100,34 @@ def evaluate(
     successes = 0
     per_episode = []
 
-    for i in range(n_episodes):
-        obs, _ = env.reset(seed=seed + i)
-        policy.reset()
-        success = False
+    try:
+        for i in range(n_episodes):
+            obs, _ = env.reset(seed=seed + i)
+            policy.reset()
+            success = False
 
-        for step in range(MAX_EPISODE_STEPS):
-            batch = preprocessor(_to_batch(obs, task))
-            with torch.inference_mode():
-                action = policy.select_action(batch)
-            action = postprocessor(action)
-            action = action.squeeze(0).cpu().numpy().astype(np.float32)
+            for step in range(MAX_EPISODE_STEPS):
+                batch = preprocessor(_to_batch(obs, task))
+                with torch.inference_mode():
+                    action = policy.select_action(batch)
+                action = postprocessor(action)
+                action = action.squeeze(0).cpu().numpy().astype(np.float32)
 
-            if logger is not None:
-                logger.log_step(step, obs, action, task=task)
+                if logger is not None:
+                    logger.log_step(step, obs, action, task=task)
 
-            obs, _reward, terminated, truncated, info = env.step(action)
-            success = bool(info["is_success"])
-            if terminated or truncated:
-                break
+                obs, _reward, terminated, truncated, info = env.step(action)
+                success = bool(info["is_success"])
+                if terminated or truncated:
+                    break
 
-        successes += success
-        per_episode.append({"seed": seed + i, "success": success})
-        print(f"episode {i + 1}/{n_episodes}: {'OK' if success else 'FAIL'}")
-
-    env.close()
+            successes += success
+            per_episode.append({"seed": seed + i, "success": success})
+            print(f"episode {i + 1}/{n_episodes}: {'OK' if success else 'FAIL'}")
+    finally:
+        # Always release the MuJoCo renderer/context, even if a bad checkpoint
+        # tensor throws mid-rollout (matters for unattended `make eval`/CI).
+        env.close()
 
     result = {
         "policy": str(policy_path),
