@@ -15,7 +15,9 @@ from vla_trial.config import (
     BASE_POLICY_ID,
     DATASET_REPO_ID,
     PIPE_TEST_JOB_TARGET,
+    PIPE_TEST_STEPS,
     POLICY_REPO_ID,
+    TRAIN_STEPS,
     train_remote_cmd,
     train_smoke_cmd,
 )
@@ -70,8 +72,12 @@ def test_pipe_test_and_full_differ_in_steps():
     pipe = " ".join(train_remote_cmd(pipe_test=True))
     full = " ".join(train_remote_cmd(pipe_test=False))
     assert pipe != full
-    assert "--steps=2000" in pipe
-    assert "--steps=20000" in full
+    # Sourced from config.py, not hardcoded: PIPE_TEST_STEPS dropped 2000 -> 100
+    # under the 2026-07-15 "100 iterations only" directive (see config.py); a
+    # hardcoded literal here silently stopped catching regressions the moment
+    # that changed. Regression guard for exactly that staleness.
+    assert f"--steps={PIPE_TEST_STEPS}" in pipe
+    assert f"--steps={TRAIN_STEPS}" in full
 
 
 @pytest.mark.slow

@@ -266,7 +266,11 @@ TRAIN_JOB_TARGET = "a10g-small"
 # NOT to clear the >=60% bar. Expect a low success rate; that is success here.
 # a10g-small (24 GB) not t4-small: batch 32 of a 450M VLA is tight on a T4's
 # 16 GB, and a job that OOMs still bills. Reliability beats absolute-cheapest.
-PIPE_TEST_STEPS = 2_000
+# User directive 2026-07-15: "have 100 iterations only" — minimize spend to
+# just prove the corrected save->push->eval tail (the output_dir bug wasted the
+# first 2k-step run). At 100 steps the checkpoint is ~the base model, so eval
+# will score ~0% — expected; this run validates the pipe tail, not performance.
+PIPE_TEST_STEPS = 100
 PIPE_TEST_BATCH_SIZE = 32
 PIPE_TEST_JOB_TARGET = "a10g-small"
 
@@ -358,6 +362,28 @@ SMOKE_EVAL_OUTPUT_DIR = EVAL_OUTPUT_DIR / "smoke"
 SMOKE_CHECKPOINT_PATH = (
     TRAIN_SMOKE_OUTPUT_DIR / "checkpoints" / "000005" / "pretrained_model"
 )
+
+# --- narrative comparison harness (Task 10) ---------------------------------
+# The demo's eventual claim is "base flails (<20%), fine-tuned clears 60%".
+# That claim needs the real 20k-step checkpoint, which does not exist yet
+# (see tests/test_narrative.py). These two checkpoints are harness stand-ins
+# ONLY — both are real, distinct, HF-Jobs-trained artifacts (5 local CPU steps
+# vs. 100 remote GPU steps), so the harness genuinely evaluates two different
+# checkpoints to two different output dirs, it just can't back the >=60%
+# claim yet. NOTE: the raw, un-fine-tuned BASE_POLICY_ID canNOT stand in for
+# "base" here — its own config.empty_cameras is 0 (it expects 3 real
+# cameras), which trips evaluate()'s empty_cameras==EMPTY_CAMERAS(1) assert;
+# only checkpoints that went through our rename_map+empty_cameras=1 training
+# path are eval-compatible. A real base-vs-finetuned run needs a separate
+# eval path for the untouched base checkpoint — deferred with the full run.
+NARRATIVE_EPISODES = 2
+NARRATIVE_OUTPUT_DIR = EVAL_OUTPUT_DIR / "narrative"
+NARRATIVE_BASE_OUTPUT_DIR = NARRATIVE_OUTPUT_DIR / "base"
+NARRATIVE_FINETUNED_OUTPUT_DIR = NARRATIVE_OUTPUT_DIR / "finetuned"
+# 100-step Hub checkpoint (Task 9 pipe-test), cached locally — stands in for
+# "finetuned" in the harness only; genuinely more-trained than the 5-step
+# local smoke checkpoint used as "base", even though neither clears the bar.
+NARRATIVE_FINETUNED_STANDIN = "jazarium/train_2026-07-15_08-09-36"
 
 # Set from the M0 spike (Task 3): "cpu" unless MPS measurably wins AND the
 # deployment target is native (not the container — Docker/macOS has no MPS).
