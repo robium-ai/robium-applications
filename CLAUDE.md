@@ -9,20 +9,20 @@ The proving ground **and reference library** for the **robium** Claude Code plug
 ## Sibling repos — anchor the session in the repo that owns the output
 
 Three repos are worked on together and sit side by side under `~/repos/`:
-**robium** (the plugin: skills, agents, its own STRICT skill-update policy),
-**robium-applications** (this one: apps + learnings), and **robium.org** (landing
-site + live-demo orchestrator). `.claude/settings.json` here puts the other two on
+**robium-plugin** (the plugin: skills, agents, its own STRICT skill-update policy),
+**robium-applications** (this one: apps + learnings), and **robium-website** (landing
+site for robium.ai + live-demo orchestrator; renamed from robium.org). `.claude/settings.json` here puts the other two on
 `additionalDirectories`, so they are readable and writable from this session — but
 **launch Claude in the repo whose output you are producing**, because the launch
 directory is what selects the operating mode (this file's two-hats rule only loads
 when this repo is the anchor, and git branch/status in the prompt track it too).
 
 - Building or QA'ing an app → anchor here.
-- Hardening/absorbing skills → anchor in `robium` (that is where `skill-author` and
+- Hardening/absorbing skills → anchor in `robium-plugin` (that is where `skill-author` and
   the archive/version rules live).
-- Site or demo infrastructure → anchor in `robium.org`.
+- Site or demo infrastructure → anchor in `robium-website` (formerly robium.org; serves robium.ai).
 
-Writes to `robium/skills/**` from this repo are gated by an `ask` permission rule —
+Writes to `robium-plugin/skills/**` from this repo are gated by an `ask` permission rule —
 a deliberate speed bump for the two-hats rule below. It is not a hard block: an
 explicit, user-invoked `skill-updater` run still works, it just has to be confirmed.
 
@@ -57,7 +57,7 @@ At the end of each work block (milestone or session), add one line per robium sk
 
 - **During a build**: use the skills as a client would. Do NOT edit robium's skills mid-build and do NOT quietly substitute your own knowledge — log the learning first, then proceed however the build needs.
 - **Capture is automatic; absorption is never automatic.** NEVER edit robium's skills or invoke `skill-updater` on your own initiative. Instead, when a work block ends (or notable learnings have piled up), OFFER: present the skill-worthy candidates as a short list — `[target-skill] finding → smallest intended edit` — and ask "want me to run skill-updater with these?" The user is the editorial gate against skill bloat; items they don't approve stay in `learnings/` as notes, which is a fine permanent home.
-- **On explicit invocation only**: `skill-updater` (or "update my skills" / "absorb these learnings") applies the user-approved items to the robium source checkout (`~/repos/robium`) per that skill's workflow. Even then there is a second gate: before ANY commit, the per-skill change summary (skill, old → new version, concrete diff-level changes) is presented for explicit approval. Every skill edit bumps the skill's `version:` and snapshots the prior version to robium's `archive/<name>/<old-version>/` in the same commit. These rules hold in autonomous mode too — autonomy never extends to skill edits.
+- **On explicit invocation only**: `skill-updater` (or "update my skills" / "absorb these learnings") applies the user-approved items to the robium-plugin source checkout (`~/repos/robium-plugin`) per that skill's workflow. Even then there is a second gate: before ANY commit, the per-skill change summary (skill, old → new version, concrete diff-level changes) is presented for explicit approval. Every skill edit bumps the skill's `version:` and snapshots the prior version to robium's `archive/<name>/<old-version>/` in the same commit. These rules hold in autonomous mode too — autonomy never extends to skill edits.
 - **Between builds**: fuller hardening sessions run in the **robium repo** with its `skill-author` skill (see its learnings-loop reference — it consumes these files, edits skills, promotes ✓-verified examples, prunes noise, then marks entries here with `<!-- absorbed: YYYY-MM-DD -->`).
 
 ## Building apps here

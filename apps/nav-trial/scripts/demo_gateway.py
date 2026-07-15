@@ -26,7 +26,7 @@ import urllib.request
 from urllib.parse import parse_qs, quote, urlsplit
 
 # Per-request CORS origin (async-safe: each connection task has its own copy).
-_origin = contextvars.ContextVar('origin', default='https://robium.org')
+_origin = contextvars.ContextVar('origin', default='https://robium.ai')
 
 PORT = int(os.environ.get('PORT', '8765'))
 BRIDGE = ('127.0.0.1', 8766)
@@ -186,13 +186,14 @@ def fleet_running():
     return None
 
 
-ALLOWED_ORIGINS = ('https://robium.org',)
+ALLOWED_ORIGINS = ('https://robium.ai', 'https://robium.org')
 
 
 def cors_origin(head):
     """Reflect an allowed Origin (exact-origin CORS with credentials — ACAO:*
-    is invalid alongside credentials). Prod is robium.org; localhost:* is
-    allowed so `npm run dev` can iterate the frontend against this gateway."""
+    is invalid alongside credentials). Prod is robium.ai (robium.org still
+    allowed through the domain migration); localhost:* is allowed so
+    `npm run dev` can iterate the frontend against this gateway."""
     for line in head.split('\r\n'):
         if line.lower().startswith('origin:'):
             o = line.split(':', 1)[1].strip()

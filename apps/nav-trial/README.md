@@ -20,7 +20,7 @@ browser Foxglove at ws://localhost:8765.
   Foxglove bridge); `make demo-smoke` gates it. `make demo-image` +
   `make demo-deploy` push it to Cloud Run (`demo-nav-trial`, robium-prod,
   per-visitor instances via concurrency=1, GZ_RELAY unicast discovery)
-  where robium.org/demos/nav-trial hands each visitor a private instance.
+  where robium.ai/demos/nav-trial hands each visitor a private instance.
 
 Map regeneration: `make slam` rewrites `src/nav_trial_bringup/maps/`
 (map.pgm + map.yaml) via the compose volume mount; the next image build

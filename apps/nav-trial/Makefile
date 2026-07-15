@@ -47,7 +47,7 @@ demo-smoke:
 smoke:
 	$(COMPOSE) --profile test up --build --abort-on-container-exit --exit-code-from smoke
 
-# --- live demo on Cloud Run (per-visitor instances; see robium.org spec) ---
+# --- live demo on Cloud Run (per-visitor instances; see robium.ai spec) ---
 DEMO_IMAGE = us-central1-docker.pkg.dev/robium-prod/robium/demo-nav-trial:latest
 
 demo-image:

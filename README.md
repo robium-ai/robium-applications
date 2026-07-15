@@ -1,6 +1,6 @@
 # robium-applications
 
-Proving ground **and reference library** for the [robium](https://github.com/jazarium/robium-docs)
+Proving ground **and reference library** for the [robium](https://github.com/jazarium/robium-plugin)
 Claude Code plugin. Real robotics applications are built here **using robium's skills**,
 serving four purposes:
 
