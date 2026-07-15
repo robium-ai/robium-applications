@@ -24,3 +24,16 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = ["pytest>=9.1.1"]
+
+[tool.pytest.ini_options]
+# The M0 spike tests re-measure SmolVLA CPU latency at ~9 s per forward pass —
+# 268 s, 56% of the suite — to re-derive numbers that are already committed in
+# docs/architecture-brief.md. They are a benchmark, not a regression test, so
+# they are OUT of the default path. Run them deliberately: `make spike-test`.
+#
+# Everything else (env, oracle canary, reachability, assets, render) stays in
+# the default run — those are real regression tests and must not be skipped.
+markers = [
+    "slow: a benchmark or long rollout; deselected by default, run via `make spike-test`",
+]
+addopts = "-m 'not slow'"

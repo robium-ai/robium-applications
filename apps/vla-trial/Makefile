@@ -1,4 +1,4 @@
-.PHONY: sync assets test clean spike-render spike-policy spike-policy-container oracle
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle
 
 sync:
 	uv sync
@@ -6,8 +6,18 @@ sync:
 assets:
 	bash scripts/fetch_assets.sh
 
+# The regression suite. Excludes the `slow` M0 benchmarks — they re-derive
+# already-committed numbers at ~9 s per SmolVLA forward pass and were 56% of
+# the runtime. Benchmarks are not regression tests.
 test:
 	uv run pytest tests/ -v
+
+# The M0 benchmark guards, on demand. Slow by design (real SmolVLA inference).
+spike-test:
+	uv run pytest tests/ -v -m slow
+
+test-all:
+	uv run pytest tests/ -v -m ""
 
 clean:
 	rm -rf outputs

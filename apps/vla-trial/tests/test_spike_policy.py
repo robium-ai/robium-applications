@@ -1,7 +1,20 @@
+"""M0 spike guards. Marked `slow` — deselected from the default run.
+
+Each test here does REAL SmolVLA forward passes at ~9 s apiece on CPU: together
+they were 268 s, 56% of the whole suite, re-deriving numbers already committed
+in docs/architecture-brief.md. They are a benchmark, not a regression test.
+
+Run them deliberately: `make spike-test`.
+"""
+
 import json
+
+import pytest
 
 from vla_trial.config import POLICY_SPIKE_JSON
 from vla_trial.spike.bench_policy import bench_policy
+
+pytestmark = pytest.mark.slow
 
 
 def test_bench_policy_cpu_produces_latency(tmp_path):
