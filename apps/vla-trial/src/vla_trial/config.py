@@ -245,3 +245,98 @@ DATASET_REPO_ID = f"{HF_USER}/so101_pick_cube"
 # failure; 75 over ~10 cm gives 60-80%. Do not lower this to "save time" —
 # it is the difference between a demo and a robot that grasps at air.
 N_EPISODES = 75
+
+# --- training --------------------------------------------------------------
+# Shared seed for training and eval so runs reproduce.
+SEED = 1000
+
+# Where the fine-tuned checkpoint is published (private).
+POLICY_REPO_ID = f"{HF_USER}/smolvla_so101_pick"
+
+# Two run profiles. THE FULL RUN is the real one (20k steps ~= 4 h on an A100,
+# 60-80% success in the reference); it is a separate, deliberate spend.
+TRAIN_STEPS = 20_000
+TRAIN_BATCH_SIZE = 64
+TRAIN_JOB_TARGET = "a10g-small"
+
+# THE PIPE-TEST RUN (user directive 2026-07-14: "test the pipe, don't spend
+# much"). Deliberately under-trained — its job is to prove the whole remote loop
+# (push -> HF Jobs submit -> log stream -> checkpoint to Hub -> pull -> eval),
+# NOT to clear the >=60% bar. Expect a low success rate; that is success here.
+# a10g-small (24 GB) not t4-small: batch 32 of a 450M VLA is tight on a T4's
+# 16 GB, and a job that OOMs still bills. Reliability beats absolute-cheapest.
+PIPE_TEST_STEPS = 2_000
+PIPE_TEST_BATCH_SIZE = 32
+PIPE_TEST_JOB_TARGET = "a10g-small"
+
+# Local loop-start smoke: a handful of steps on CPU to prove the training loop
+# assembles (config/shape/dtype) before paying for a GPU. NOT training — on MPS
+# a fine-tune is ~2 h per 20 steps (Task 3 M0).
+TRAIN_SMOKE_STEPS = 5
+TRAIN_SMOKE_BATCH_SIZE = 2
+
+TRAIN_OUTPUT_DIR = APP_ROOT / "outputs" / "train" / "smolvla_so101"
+TRAIN_SMOKE_OUTPUT_DIR = APP_ROOT / "outputs" / "train" / "smolvla_so101_smoke"
+
+
+# SmolVLA base declares THREE image inputs named observation.images.camera1/2/3
+# (Task 3 M0 found this). Our dataset has two semantic cameras, so at both train
+# and eval we (a) rename ours onto camera1/camera2 and (b) add one masked
+# placeholder for the missing camera3 via --policy.empty_cameras=1. The
+# placeholder is filled with a masked dummy tensor — no fake image is recorded.
+# (LeRobot rename_map.mdx; supported for SmolVLA/PI0/PI05/PI0Fast/XVLA.)
+import json as _json
+
+CAMERA_RENAME_MAP = {
+    "observation.images.wrist": "observation.images.camera1",
+    "observation.images.scene": "observation.images.camera2",
+}
+EMPTY_CAMERAS = 1
+
+
+def _rename_map_arg() -> str:
+    return "--rename_map=" + _json.dumps(CAMERA_RENAME_MAP)
+
+
+def _train_base_args(steps: int, batch_size: int, output_dir) -> list[str]:
+    return [
+        "lerobot-train",
+        f"--policy.path={BASE_POLICY_ID}",
+        f"--dataset.repo_id={DATASET_REPO_ID}",
+        _rename_map_arg(),
+        f"--policy.empty_cameras={EMPTY_CAMERAS}",
+        f"--steps={steps}",
+        f"--batch_size={batch_size}",
+        f"--seed={SEED}",
+        f"--output_dir={output_dir}",
+    ]
+
+
+def train_smoke_cmd() -> list[str]:
+    """A few steps on CPU — proves the loop assembles. NOT training, NOT remote."""
+    return _train_base_args(
+        TRAIN_SMOKE_STEPS, TRAIN_SMOKE_BATCH_SIZE, TRAIN_SMOKE_OUTPUT_DIR
+    ) + [
+        "--policy.device=cpu",
+        "--policy.push_to_hub=false",
+        f"--save_freq={TRAIN_SMOKE_STEPS}",
+    ]
+
+
+def train_remote_cmd(pipe_test: bool = True) -> list[str]:
+    """The real fine-tune, on HF Jobs. Never runs on this machine.
+
+    pipe_test=True  -> the cheap under-trained run that proves the pipeline.
+    pipe_test=False -> the full 20k-step run (a separate, deliberate spend).
+    """
+    if pipe_test:
+        steps, batch, target = (
+            PIPE_TEST_STEPS, PIPE_TEST_BATCH_SIZE, PIPE_TEST_JOB_TARGET
+        )
+    else:
+        steps, batch, target = TRAIN_STEPS, TRAIN_BATCH_SIZE, TRAIN_JOB_TARGET
+    return _train_base_args(steps, batch, TRAIN_OUTPUT_DIR) + [
+        f"--policy.repo_id={POLICY_REPO_ID}",
+        "--policy.push_to_hub=true",
+        f"--job.target={target}",  # any non-local value submits to HF Jobs
+    ]

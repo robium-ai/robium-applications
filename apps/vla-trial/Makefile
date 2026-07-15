@@ -1,4 +1,4 @@
-.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check train-smoke train train-full
 
 sync:
 	uv sync
@@ -63,3 +63,18 @@ push-dataset:
 # attached, one .rrd per episode under outputs/viz/, for visual spot-checking.
 spot-check:
 	uv run python -m vla_trial.run spot-check
+
+# Task 8: prove the training loop assembles — a few steps on CPU, free, ~2 min.
+# NOT training (MPS is ~2 h per 20 steps). Catches config/shape errors before
+# any GPU spend.
+train-smoke:
+	uv run python -m vla_trial.run train-smoke
+
+# Task 8: submit the fine-tune to HF Jobs. Default is the CHEAP PIPE-TEST run
+# (2k steps, a10g-small, ~$2-4) that proves the remote loop end-to-end. The real
+# 20k-step run is `make train-full` — a separate, deliberate spend.
+train:
+	uv run python -m vla_trial.run train
+
+train-full:
+	uv run python -m vla_trial.run train full

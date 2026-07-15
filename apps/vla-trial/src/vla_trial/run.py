@@ -107,6 +107,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"pushed {DATASET_REPO_ID} to the Hub (private)")
         return 0
 
+    if cmd == "train-smoke":
+        import subprocess
+
+        from vla_trial.config import train_smoke_cmd
+
+        return subprocess.run(train_smoke_cmd()).returncode
+
+    if cmd == "train":
+        import subprocess
+
+        from vla_trial.config import train_remote_cmd
+
+        # Default is the cheap pipe-test run; `train full` is the real 20k spend.
+        pipe_test = "full" not in rest
+        cmd_argv = train_remote_cmd(pipe_test=pipe_test)
+        kind = "PIPE-TEST" if pipe_test else "FULL 20k"
+        print(f"submitting {kind} fine-tune to HF Jobs:\n  {' '.join(cmd_argv)}")
+        return subprocess.run(cmd_argv).returncode
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 
