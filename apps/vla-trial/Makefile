@@ -1,4 +1,4 @@
-.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check train-smoke train train-full eval smoke
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check train-smoke train train-full eval smoke demo demo-image demo-smoke
 
 sync:
 	uv sync
@@ -92,3 +92,25 @@ eval:
 # real fine-tune (SUCCESS_RATE_FLOOR) hasn't run yet; see tests/test_smoke.py.
 smoke:
 	uv run pytest tests/test_smoke.py -v -m slow
+
+# --- demo page (spec: docs/superpowers/specs/2026-07-15-vla-trial-demo-page-design.md)
+
+# The demo gateway, NATIVE (fast MPS inference on Apple silicon). Pair with
+# the website's dev backend dropdown: "direct localhost:8765".
+# MUJOCO_GL=cgl is required on macOS; contexts are thread-affine — see
+# src/vla_trial/demo/episode_runner.py's docstring before "simplifying" this.
+demo:
+	MUJOCO_GL=cgl uv run python -m vla_trial.demo.gateway
+
+# Build the demo container (CPU inference, ~9 s/forward-pass). The checkpoint
+# repos are private, so the bake step gets the HF token as a BuildKit secret.
+demo-image:
+	HF_TOKEN=$$(uv run hf auth token) docker build \
+	  --secret id=hf_token,env=HF_TOKEN \
+	  -f docker/demo.Dockerfile -t vla-trial:latest .
+
+# The live-demo skill's ship bar: gateway boots to DEMO READY, session guards
+# hold (409/403), ONE ORACLE EPISODE SUCCEEDS through the Gradio API, and
+# /shutdown exits the process. Boots the real model — takes a few minutes.
+demo-smoke:
+	uv run pytest tests/test_demo.py -v -m slow

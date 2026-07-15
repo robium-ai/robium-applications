@@ -1,0 +1,7 @@
+# Keep the build context small: the venv alone is multiple GB.
+.venv
+outputs
+.pytest_cache
+**/__pycache__
+docs
+tests

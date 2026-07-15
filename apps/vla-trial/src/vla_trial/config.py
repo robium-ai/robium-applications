@@ -393,6 +393,23 @@ INFERENCE_DEVICE = os.environ.get(
     "VLA_DEVICE", "mps" if torch.backends.mps.is_available() else "cpu"
 )
 
+# --- demo (spec: 2026-07-15-vla-trial-demo-page-design.md) -------------------
+# The checkpoint the demo page's "trained" controller runs. Today this is the
+# 100-step pipe-test artifact — essentially the base model, scores 0/10, and
+# the UI says so. When `make train-full` produces the real 20k-step
+# checkpoint, flip this one constant (or set VLA_DEMO_CHECKPOINT).
+DEMO_CHECKPOINT = os.environ.get("VLA_DEMO_CHECKPOINT", NARRATIVE_FINETUNED_STANDIN)
+
+DEMO_PORT = int(os.environ.get("PORT", "8765"))
+DEMO_SESSION_SECONDS = 1800  # keep in sync with demos.json sessionSeconds
+DEMO_FLEET_BUDGET = 1  # keep in sync with demos.json maxInstances
+
+# The oracle's grasp calibration was swept on seeds 0..9 (10/10 there) — demo
+# oracle runs cycle through that band rather than gambling on untuned spawns.
+DEMO_ORACLE_SEEDS = tuple(range(10))
+# Trained-controller demo runs walk the eval seed range (evaluate.py's base).
+DEMO_TRAINED_SEED_BASE = SEED
+
 
 def train_remote_cmd(pipe_test: bool = True) -> list[str]:
     """The real fine-tune, on HF Jobs. Never runs on this machine.

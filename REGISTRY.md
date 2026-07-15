@@ -18,7 +18,7 @@ map, not the territory.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [nav-trial](#nav-trial) | Classical ROS navigation | ROS 2 Jazzy + Nav2 + slam_toolbox | Gazebo Harmonic (headless) | Docker (arm64) | Foxglove (browser) | `make smoke` | 2026-07-11 |
 | [manip-trial](#manip-trial) | Physical AI / ML manipulation | LeRobot 0.6.0 (ACT policy) | gym-pusht (pygame/pymunk) | uv + Python 3.12 (MPS) | rerun / MP4s | `make smoke` | 2026-07-12 |
-| [vla-trial](#vla-trial) | Physical AI / language-conditioned VLA | LeRobot 0.6.0 + SmolVLA 450M | MuJoCo 3.10 (SO-101 menagerie + pedestal) | uv + Python 3.12 (MPS eval) + HF Jobs (GPU train) | rerun | `make smoke` (mechanics only) | 2026-07-15 (pipeline validated; full-training policy pending) |
+| [vla-trial](#vla-trial) | Physical AI / language-conditioned VLA | LeRobot 0.6.0 + SmolVLA 450M | MuJoCo 3.10 (SO-101 menagerie + pedestal) | uv + Python 3.12 (MPS eval) + HF Jobs (GPU train) + Docker (demo) | rerun (+ gradio_rerun demo UI) | `make smoke` (mechanics) + `make demo-smoke` (demo gateway) | 2026-07-15 (pipeline + demo gateway validated; full-training policy pending) |
 
 ## Cards
 
@@ -99,6 +99,16 @@ trained long enough to succeed yet.**
   The real bar (`SUCCESS_RATE_FLOOR=0.60`) is asserted against a 20k-step
   fine-tune that has not been run — `make train-full`, ~$20-40, deferred by
   a deliberate user cost decision, not blocked by any technical issue.
+- **Live demo (v1, local-only; spec
+  `docs/superpowers/specs/2026-07-15-vla-trial-demo-page-design.md`):**
+  `src/vla_trial/demo/` — FastAPI session gateway (nav-trial's contract) +
+  Gradio 6 UI with an embedded `gradio_rerun` viewer on :8765; controllers
+  `oracle` (succeeds, scripted+blind) and `trained` (pipe-test checkpoint,
+  honestly flails). `make demo` = native/MPS; `make demo-image` = the
+  `vla-trial:latest` container (CPU, osmesa, checkpoint baked via BuildKit
+  secret); `make demo-smoke` = the gate (4 tests: ready, session guards,
+  oracle ✅ through the Gradio API, shutdown). Website side lives in
+  robium-website (`/demos/vla-trial/`, orchestrator `demos.json`).
 - **Bootstrap for:** any LeRobot VLA fine-tune loop (record -> push ->
   HF-Jobs train -> pull -> eval); a MuJoCo-on-Apple-Silicon manipulation env
   built from scratch (menagerie asset + custom scene + IK + success

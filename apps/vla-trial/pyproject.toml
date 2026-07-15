@@ -16,6 +16,12 @@ dependencies = [
     # component Part 2 depends on.
     "rerun-sdk==0.34.1",
     "numpy>=1.26",
+    # Demo page (spec 2026-07-15): gradio_rerun is pinned to the rerun-sdk
+    # version by design (the component embeds a matching viewer build).
+    "gradio>=6.0.0",
+    "gradio_rerun==0.34.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
 ]
 
 [build-system]

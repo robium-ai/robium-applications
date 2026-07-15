@@ -52,6 +52,9 @@ can never drift apart.
 | Eval | `make eval CKPT=<repo_id_or_path>` | roll a checkpoint out in sim, N seeded episodes, write `outputs/eval/*/eval_info.json` with a numeric success rate |
 | Pipe-test pass bar | `make smoke` | asserts the eval PIPELINE runs end-to-end on the local 5-step checkpoint (loads, rolls out, writes JSON) — NOT a `>=60%` score bar |
 | Narrative harness | `MUJOCO_GL=cgl uv run pytest tests/test_narrative.py -m slow` | asserts the base-vs-fine-tuned COMPARISON MACHINERY works (two checkpoints, two distinct output dirs, both produce numeric rates) — not the demo's eventual claim; see the file's `TODO(full-training)` |
+| Demo (native, MPS) | `make demo` | the demo-page gateway on :8765 — FastAPI session contract + Gradio/`gradio_rerun` UI (`src/vla_trial/demo/`); pair with robium-website's `/demos/vla-trial/` page in "direct" mode |
+| Demo (container) | `make demo-image` | build `vla-trial:latest` (CPU/osmesa; checkpoint baked in via a BuildKit HF-token secret) — what the website's orchestrator spawns |
+| Demo pass bar | `make demo-smoke` | boots the real gateway: DEMO READY, session guards (409/403), one oracle episode succeeds THROUGH the Gradio API, /shutdown exits |
 
 There is a free, local, CPU-only gate in front of every paid step:
 `train-smoke` (a handful of CPU steps, ~2 min, catches config/shape errors)
@@ -88,6 +91,13 @@ bug for free once already (see Battle scars).
 
 ## Hard-won facts (read before you touch this app)
 
+- **macOS MuJoCo GL contexts (CGL) are thread-affine — cross-thread rendering
+  is a silent DEADLOCK, not an error.** A renderer created on one thread hangs
+  forever in cgl `make_current` when another thread renders with it; any
+  thread pool (Gradio handlers, ThreadPoolExecutor) triggers this even though
+  "it worked at boot". The demo constructs a fresh env per run in the running
+  thread (see `src/vla_trial/demo/episode_runner.py`'s docstring and
+  `learnings/2026-07-15-vla-trial.md` for the faulthandler stack).
 - **Never train on macOS.** MPS fine-tuning is ~2 hours per 20 steps — CPU is
   even worse. All training happens on HF Jobs (remote GPU); local MPS is for
   *inference/eval only*, where SmolVLA is fast (~0.55 s/forward-pass on
