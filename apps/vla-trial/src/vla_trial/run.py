@@ -66,6 +66,47 @@ def main(argv: list[str] | None = None) -> int:
         print(f"open with: rerun {VIZ_DIR / 'oracle.rrd'}")
         return 0
 
+    if cmd == "record":
+        from vla_trial.data.record import record
+
+        # No push here by design — pushing is `make push-dataset`, gated on review.
+        root = record(push=False)
+        print(f"dataset written to {root}")
+        print("NOT pushed. Review it, then `make push-dataset` when ready.")
+        return 0
+
+    if cmd == "spot-check":
+        from vla_trial.config import VIZ_DIR
+        from vla_trial.env.so101_pick import SO101PickEnv
+        from vla_trial.oracle.scripted_pick import rollout
+        from vla_trial.viz.rerun_logger import RerunLogger
+
+        env = SO101PickEnv()
+        seeds = [int(s) for s in rest] or [0, 1, 2, 3, 4]
+        for s in seeds:
+            logger = RerunLogger(
+                app_id=f"vla_spotcheck_{s}", save_path=VIZ_DIR / f"episode_{s}.rrd"
+            )
+            r = rollout(env, seed=s, logger=logger)
+            logger.close()
+            print(
+                f"seed {s}: success={r['success']} steps={r['n_steps']} "
+                f"-> {VIZ_DIR / f'episode_{s}.rrd'}"
+            )
+        env.close()
+        return 0
+
+    if cmd == "push-dataset":
+        # DEFERRED, GATED: exists as code but is run only by the user, after
+        # reviewing the locally recorded dataset. Task 7 must never call this.
+        from vla_trial.config import DATASET_REPO_ID
+        from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+        ds = LeRobotDataset(DATASET_REPO_ID)  # loads the already-recorded local copy
+        ds.push_to_hub(private=True)  # PRIVATE by default
+        print(f"pushed {DATASET_REPO_ID} to the Hub (private)")
+        return 0
+
     print(f"unknown subcommand: {cmd}", file=sys.stderr)
     return 2
 

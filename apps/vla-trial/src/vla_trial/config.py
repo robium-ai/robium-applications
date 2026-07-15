@@ -5,6 +5,7 @@ values, so a hand-run stage and the pass-bar run can never drift apart.
 (Pattern lifted from apps/manip-trial.)
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -235,3 +236,12 @@ ORACLE_RELEASE_HEIGHT = 0.15
 # it both need longer to settle than a free-space move.
 ORACLE_SETTLE_STEPS = 16
 ORACLE_GRASP_SETTLE_STEPS = 34
+
+# --- dataset ---------------------------------------------------------------
+HF_USER = os.environ.get("HF_USER", "jazarium")
+DATASET_REPO_ID = f"{HF_USER}/so101_pick_cube"
+
+# 75, not 50. Spec §5: 50 episodes over a 30 cm workspace is a documented
+# failure; 75 over ~10 cm gives 60-80%. Do not lower this to "save time" —
+# it is the difference between a demo and a robot that grasps at air.
+N_EPISODES = 75

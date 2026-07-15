@@ -1,4 +1,4 @@
-.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle
+.PHONY: sync assets test test-all spike-test clean spike-render spike-policy spike-policy-container oracle viz-oracle record push-dataset spot-check
 
 sync:
 	uv sync
@@ -48,3 +48,18 @@ oracle:
 # open with: uv run rerun outputs/viz/oracle.rrd
 viz-oracle:
 	uv run python -m vla_trial.run viz-oracle
+
+# Task 7: record N clean episodes LOCALLY (discard/retry on oracle misses).
+# No Hub push — the user reviews the dataset first.
+record:
+	uv run python -m vla_trial.run record
+
+# Task 7: push the already-recorded LOCAL dataset to the Hub (private) — run
+# ONLY after reviewing it. Not invoked by `record` or by any test.
+push-dataset:
+	uv run python -m vla_trial.run push-dataset
+
+# Task 7: re-roll a handful of kept seeds through the oracle with RerunLogger
+# attached, one .rrd per episode under outputs/viz/, for visual spot-checking.
+spot-check:
+	uv run python -m vla_trial.run spot-check
