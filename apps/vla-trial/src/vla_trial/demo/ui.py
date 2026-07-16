@@ -59,13 +59,19 @@ def _blueprint() -> rrb.Blueprint:
 def build_ui(get_runner) -> gr.Blocks:
     """`get_runner` -> EpisodeRunner | None (None while the gateway boots)."""
 
-    def run_episode(recording_id: str, controller: str, instruction: str):
+    def run_episode(controller: str, instruction: str):
         runner = get_runner()
         if runner is None:
             raise gr.Error("Still booting — the model is loading (see the page's status pill).")
         instruction = (instruction or "").strip() or TASK
 
-        rec = rr.RecordingStream(application_id=APP_ID, recording_id=recording_id)
+        # A FRESH recording id per Run. Reusing one id makes the viewer MERGE
+        # runs (gradio_rerun's documented same-id behavior): the second
+        # episode re-logs step 0..N onto the first's timeline, the playhead
+        # stays parked at the old end, and the viewer looks frozen while the
+        # status counter advances. One id per episode = every run starts a
+        # clean timeline the viewer jumps to.
+        rec = rr.RecordingStream(application_id=APP_ID, recording_id=str(uuid.uuid4()))
         stream = rec.binary_stream()
         rec.send_blueprint(_blueprint())
         yield stream.read(), f"resetting env — {controller} episode starting…"
@@ -108,13 +114,9 @@ def build_ui(get_runner) -> gr.Blocks:
             panel_states={"time": "collapsed", "blueprint": "hidden", "selection": "hidden"},
         )
 
-        # Per-browser-session recording id: reruns from the same visitor merge
-        # into one viewer timeline history, a reload starts clean.
-        recording_id = gr.State(lambda: str(uuid.uuid4()))
-
         run_btn.click(
             run_episode,
-            inputs=[recording_id, controller, instruction],
+            inputs=[controller, instruction],
             outputs=[viewer, status],
             api_name="run_episode",
         )
