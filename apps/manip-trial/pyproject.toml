@@ -8,7 +8,17 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "lerobot[diffusion,pusht,training,viz]==0.6.0",
+    # No `viz` extra: it pins rerun-sdk<0.34.0, which conflicts with
+    # gradio_rerun 0.34.1 — the explicit rerun-sdk pin below replaces it
+    # (same resolution vla-trial uses).
+    "lerobot[diffusion,pusht,training]==0.6.0",
+    # Demo page (spec 2026-07-15). rerun-sdk and gradio_rerun are pinned to
+    # each other — the viewer component and SDK must match minor versions.
+    "rerun-sdk==0.34.1",
+    "gradio>=6.0.0",
+    "gradio_rerun==0.34.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
 ]
 
 [project.scripts]
@@ -22,3 +32,7 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+markers = ["slow: loads real checkpoints / boots the gateway; run via make demo-smoke"]
+addopts = "-m 'not slow'"

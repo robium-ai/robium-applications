@@ -138,7 +138,10 @@ def ladder_rungs() -> list[dict]:
 DEMO_PORT = int(os.environ.get("PORT", "8765"))
 DEMO_SESSION_SECONDS = 1800  # mirrors demos.json sessionSeconds
 DEMO_FLEET_BUDGET = 2  # mirrors demos.json maxInstances (ACT-CPU is light)
-DEMO_DEFAULT_RUNG = "10k"  # strongest rung loads at boot; others load lazily
+# Strongest MEASURED rung loads at boot; others load lazily. 5k, not 10k: the
+# ladder run's 5k checkpoint evals at avg_max_reward 0.474 vs the older 10k
+# baseline's 0.283 (see outputs/demo/ladder.json) — honest numbers win.
+DEMO_DEFAULT_RUNG = "5k"
 
 
 def demo_device() -> str:
