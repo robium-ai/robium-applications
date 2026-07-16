@@ -5,6 +5,7 @@ build their CLI invocations from these values, so the pass-bar run and the
 hand-run stages can never drift apart.
 """
 
+import os
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2]
@@ -92,3 +93,56 @@ def latest_checkpoint(train_dir: Path = TRAIN_OUTPUT_DIR) -> Path:
     if not candidates:
         raise FileNotFoundError(f"no checkpoint under {ckpt_root}")
     return candidates[-1]
+
+
+# --- checkpoint ladder (demo spec: docs/superpowers/specs/2026-07-15-manip-trial-demo-page-design.md)
+# One 5k run saving every 1k, pruned to 3 rungs; the 10k baseline (a separate,
+# earlier run — labeled as such in the UI) is the free top rung.
+LADDER_STEPS = 5_000
+LADDER_SAVE_FREQ = 1_000
+LADDER_KEEP_STEPS = (1_000, 3_000, 5_000)
+LADDER_EVAL_EPISODES = 10
+LADDER_EVAL_BATCH_SIZE = 5
+LADDER_TRAIN_OUTPUT_DIR = APP_ROOT / "outputs" / "train" / "act_pusht_ladder"
+LADDER_EVAL_OUTPUT_DIR = APP_ROOT / "outputs" / "eval" / "ladder"
+DEMO_LADDER_MANIFEST = APP_ROOT / "outputs" / "demo" / "ladder.json"
+
+
+def train_ladder_cmd() -> list[str]:
+    return _train_cmd(LADDER_STEPS, LADDER_SAVE_FREQ, 500, LADDER_TRAIN_OUTPUT_DIR)
+
+
+def ladder_rungs() -> list[dict]:
+    """The demo's checkpoint ladder, weakest to strongest."""
+    rungs = [
+        {
+            "name": f"{s // 1000}k",
+            "steps": s,
+            "run": "ladder run (5k steps, 2026-07-15)",
+            "checkpoint": LADDER_TRAIN_OUTPUT_DIR / "checkpoints" / f"{s:06d}" / "pretrained_model",
+        }
+        for s in LADDER_KEEP_STEPS
+    ]
+    rungs.append(
+        {
+            "name": "10k",
+            "steps": BASELINE_STEPS,
+            "run": "baseline run (10k steps, 2026-07-12)",
+            "checkpoint": BASELINE_TRAIN_OUTPUT_DIR / "checkpoints" / f"{BASELINE_STEPS:06d}" / "pretrained_model",
+        }
+    )
+    return rungs
+
+
+# --- demo gateway (spec: docs/superpowers/specs/2026-07-15-manip-trial-demo-page-design.md)
+DEMO_PORT = int(os.environ.get("PORT", "8765"))
+DEMO_SESSION_SECONDS = 1800  # mirrors demos.json sessionSeconds
+DEMO_FLEET_BUDGET = 2  # mirrors demos.json maxInstances (ACT-CPU is light)
+DEMO_DEFAULT_RUNG = "10k"  # strongest rung loads at boot; others load lazily
+
+
+def demo_device() -> str:
+    """mps native, cpu in the container — resolved at runtime, not import."""
+    import torch
+
+    return "mps" if torch.backends.mps.is_available() else "cpu"
