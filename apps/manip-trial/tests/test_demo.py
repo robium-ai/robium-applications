@@ -95,6 +95,42 @@ def test_refresh_reclaims_claim(gateway):
     assert code == 409
 
 
+def test_episode_completes_via_gradio_api(gateway):
+    # "1k" — the weakest rung: honest flailing, but completion is the
+    # assertion, not success (pc_success 0% is the expected reality here).
+    code, sub = _http("POST", "/ui/gradio_api/call/run_episode", {"data": ["1k"]})
+    assert code == 200 and "event_id" in sub, sub
+
+    req = urllib.request.Request(f"{BASE}/ui/gradio_api/call/run_episode/{sub['event_id']}")
+    final_status = None
+    deadline = time.time() + EPISODE_TIMEOUT_S
+    with urllib.request.urlopen(req, timeout=EPISODE_TIMEOUT_S) as r:
+        for raw in r:
+            if time.time() > deadline:
+                break
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:") or line == "data: null":
+                continue
+            payload = json.loads(line[len("data:"):])
+            if isinstance(payload, list) and payload and isinstance(payload[-1], str):
+                final_status = payload[-1]
+                if "finished at step" in final_status:
+                    break
+    assert final_status is not None, "no status updates arrived on the SSE stream"
+    assert "finished at step" in final_status, f"episode never finished: {final_status!r}"
+    assert "reward" in final_status, f"verdict lacks the honest metric: {final_status!r}"
+
+
+def test_shutdown_exits_process(gateway):
+    # carol holds the claim after the reclaim test above.
+    code, body = _http("POST", "/shutdown?session=carol")
+    assert code == 200 and body["bye"] is True
+    deadline = time.time() + 10
+    while time.time() < deadline and gateway.poll() is None:
+        time.sleep(0.2)
+    assert gateway.poll() is not None, "gateway process still alive after /shutdown"
+
+
 def test_episode_runner_completes_episode():
     from manip_trial.demo.episode_runner import EpisodeRunner
 
