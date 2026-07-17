@@ -1,4 +1,4 @@
-# Learnings — 2026-07-15 (manip-trial demo page build)
+# Learnings — 2026-07-15/16 (manip-trial demo page build)
 
 - [lerobot] `lerobot[viz]==0.6.0` pins `rerun-sdk>=0.24.0,<0.34.0`, which is
   unsatisfiable next to `gradio_rerun==0.34.1` (needs rerun-sdk==0.34.1).
@@ -34,3 +34,31 @@
   `apt-get install build-essential` in the image (verified: rebuild
   completed). Dead-end ruled out: pinning older pymunk (6.x line has no
   arm64 manylinux wheels either).
+
+- [none] Honest-numbers payoff: the checkpoint ladder came out NON-monotonic
+  (5k rung from the new run evals at 0.474 avg_max_reward; the older 10k
+  baseline at 0.283, seed-identical eval reproduced its 2026-07-12 number to
+  6 decimals). The demo shipped the real curve with the default rung set to
+  the strongest MEASURED checkpoint rather than the most-trained one. Pattern
+  worth remembering for demo copy: label rungs with measured numbers, never
+  imply monotonic improvement.
+
+## End-of-block retro (manip-trial demo build, 2026-07-16)
+
+- live-demo: fired (demo-page build matched its trigger surface), accurate
+  (session-contract + readyLog + smoke-bar shape all reused verbatim from the
+  vla-trial application of it), complete for v1-local scope, lean. One gap:
+  no guidance on CPU-torch wheel selection for demo images (logged above).
+- lerobot: fired, accurate on eval mechanics (`--eval.use_async_envs=false`
+  carried straight into the runner design). Gap: the `viz`-extra/rerun-sdk
+  pin conflict is undocumented (logged above, seen 2x counting vla-trial).
+- environments: fired (uv-first held; MPS-native exception documented in the
+  app already). Gap: no arm64-wheel/build-essential note for slim images
+  (logged above).
+- integration: quiet under real load except container patterns consulted via
+  the vla-trial Dockerfile rather than the skill — the `-e`/APP_ROOT gotcha
+  belongs somewhere durable (logged above).
+- rerun: accurate; the gradio_rerun streaming pattern + fresh-recording-id
+  gotcha came from vla-trial's encoded learnings and worked first try. ✓
+- testing: fired (smoke-bar discipline shaped test_demo.py); no findings
+  under real load.
