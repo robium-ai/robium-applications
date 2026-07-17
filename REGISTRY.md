@@ -17,7 +17,7 @@ map, not the territory.
 | App | Vertical | Stack | Sim | Env | Viz | Smoke | Verified |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | [nav-trial](#nav-trial) | Classical ROS navigation | ROS 2 Jazzy + Nav2 + slam_toolbox | Gazebo Harmonic (headless) | Docker (arm64) | Foxglove (browser) | `make smoke` | 2026-07-11 |
-| [manip-trial](#manip-trial) | Physical AI / ML manipulation | LeRobot 0.6.0 (ACT policy) | gym-pusht (pygame/pymunk) | uv + Python 3.12 (MPS) | rerun / MP4s | `make smoke` | 2026-07-12 |
+| [manip-trial](#manip-trial) | Physical AI / ML manipulation | LeRobot 0.6.0 (ACT policy) | gym-pusht (pygame/pymunk) | uv + Python 3.12 (MPS) + Docker (demo) | rerun / MP4s (+ gradio_rerun demo UI) | `make smoke` + `make demo-smoke` (demo gateway) | 2026-07-16 (demo gateway validated) |
 | [vla-trial](#vla-trial) | Physical AI / language-conditioned VLA | LeRobot 0.6.0 + SmolVLA 450M | MuJoCo 3.10 (SO-101 menagerie + pedestal) | uv + Python 3.12 (MPS eval) + HF Jobs (GPU train) + Docker (demo) | rerun (+ gradio_rerun demo UI) | `make smoke` (mechanics) + `make demo-smoke` (demo gateway) | 2026-07-15 (pipeline + demo gateway validated; full-training policy pending) |
 
 ## Cards
@@ -71,7 +71,19 @@ GPU-less Mac via MPS.
 - **Battle scars encoded:** `--eval.use_async_envs=false` (forkserver
   crash), pre-0.6 Hub checkpoints unloadable (no working pretrained PushT
   baseline exists — train your own), `diffusion` extra needed for diffusion
-  checkpoints — see `learnings/2026-07-12.md` and the brief §8.
+  checkpoints — see `learnings/2026-07-12.md` and the brief §8. Demo build:
+  lerobot's `viz` extra conflicts with gradio_rerun (pin rerun-sdk==0.34.1
+  yourself), and the demo Dockerfile's `-e` install is load-bearing for
+  APP_ROOT resolution — see `learnings/2026-07-15-manip-trial.md`.
+- **Live demo (v1, local-only; spec
+  `docs/superpowers/specs/2026-07-15-manip-trial-demo-page-design.md`):**
+  `src/manip_trial/demo/` — FastAPI session gateway (nav-trial's contract) +
+  Gradio/Rerun UI with a checkpoint-ladder radio (1k/3k/5k from one run + the
+  10k baseline) and a real-eval gallery tab. Ladder is honestly non-monotonic
+  (5k evals at 0.474 avg_max_reward vs 10k's 0.283). `make demo` = native/MPS;
+  `make demo-image` = the CPU container (no Hub access — everything baked
+  from local outputs); `make demo-smoke` = the gate. Frontend lives in
+  robium-website (`/demos/manip-trial/`, orchestrator `demos.json`).
 
 ### vla-trial
 
