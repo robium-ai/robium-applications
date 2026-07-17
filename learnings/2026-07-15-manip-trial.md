@@ -11,3 +11,26 @@
   Verified by: `uv sync` succeeding after the change (and the demo tests later
   in the session). Candidate for the lerobot skill's platform gotchas
   (seen 1x; vla-trial hit the adjacent shape on 07-14, so effectively 2x).
+
+- [integration] In a demo Dockerfile, `uv pip install --system -e .` — the
+  `-e` is load-bearing, not style: an app whose config derives APP_ROOT from
+  `config.py.__file__` (manip-trial, vla-trial both do) resolves to
+  site-packages under a non-editable install, and every baked `outputs/` path
+  silently misses. Caught at plan-review time by reading vla-trial's working
+  Dockerfile; no failing build needed. Worth a line in the integration (or
+  live-demo) skill's container patterns.
+
+- [live-demo] CPU-only demo images built with plain `uv pip install` pull the
+  default linux torch wheel with the full CUDA dependency train
+  (nvidia-cudnn/cusolver/... — multi-GB) that a CPU container never uses.
+  vla-trial's demo image has the same trait, so this is seen 2x. Candidate
+  fix for the skill's container patterns: install torch from the
+  `https://download.pytorch.org/whl/cpu` index in demo Dockerfiles. Not
+  applied this session (build already green; size, not correctness).
+
+- [environments] `pymunk` (via `lerobot[pusht]`) ships no linux/arm64 wheel —
+  a python:3.12-slim image fails at `uv pip install` with
+  `error: command 'gcc' failed: No such file or directory`. Fix that passed:
+  `apt-get install build-essential` in the image (verified: rebuild
+  completed). Dead-end ruled out: pinning older pymunk (6.x line has no
+  arm64 manylinux wheels either).

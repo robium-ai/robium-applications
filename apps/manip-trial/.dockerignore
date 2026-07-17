@@ -1,0 +1,13 @@
+.venv/
+.pytest_cache/
+__pycache__/
+data/
+wandb/
+outputs/train/act_pusht_smoke/
+outputs/train/act_pusht_ladder/checkpoints/*/training_state/
+outputs/eval/smoke/
+outputs/eval/baseline*/
+outputs/eval/eval_trained.log
+outputs/train/*.log
+outputs/train/act_pusht_10k/checkpoints/*/training_state/
+outputs/viz/
