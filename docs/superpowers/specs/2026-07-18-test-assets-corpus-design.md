@@ -3,11 +3,12 @@
 Date: 2026-07-18
 Status: approved-pending-user-review
 Owned, vendored test assets for this repo's apps — smoke tests, regression tests, and
-"see what the data looks like" inspection. Decided to come **before** the robium-plugin
-`test-assets` skill (spec: robium-plugin docs/superpowers/specs/2026-07-18-test-assets-
-skill-design.md, deferred): maintaining real copies first teaches us what the skill
-should say, and the vendor script here becomes the field-tested prototype of that
-skill's fetch script.
+"see what the data looks like" inspection. Ordering (revised 2026-07-18, same day): the
+robium-plugin `test-assets` skill (spec: robium-plugin docs/superpowers/specs/
+2026-07-18-test-assets-skill-design.md) is authored **first** as a general-purpose
+skill, and this corpus is then built **by invoking that skill** — its first hardening
+run, the standard demo↔skill pairing. The vendor script ships in the skill
+(scripts/vendor_assets.py), not in this repo.
 
 ## Decisions (settled in brainstorm)
 
@@ -41,9 +42,11 @@ test-assets/
     pusht_sample/           # slice of pusht for train-smoke tests
   bags/                     # self-recorded from seeded oracle runs (starts empty)
   goldens/                  # tolerance-band reference outputs per app/scenario (starts empty)
-  scripts/
-    vendor_assets.py        # manifest-driven fetch/refresh (see below)
 ```
+
+(No local script — fetching/refreshing uses the `test-assets` skill's
+vendor_assets.py; this layout is the skill's standard layout, instantiated here in
+vendored mode.)
 
 Top-level in this repo, sibling of `apps/` — shared across apps. App tests reference it
 by relative path (e.g. nav-trial launch tests point at `test-assets/worlds/tb3_house`).
@@ -68,18 +71,18 @@ Rules: every local modification to a vendored file is listed in `notes` — othe
 files are verbatim upstream. License field is read from the upstream repo at vendor
 time, never from memory. `README.md` renders the same inventory human-first.
 
-## vendor_assets.py
+## Fetch/refresh mechanics
 
-Manifest-driven: for each entry, fetch `kind`-appropriately (sparse git checkout at
-`revision`; `gz fuel download` + dependency flattening; `huggingface_hub` snapshot of
-the slice) into `path`, then print a diff summary against what's committed. Re-run =
-refresh check. Idempotent; no robium-specific behavior. This script is the prototype
-that graduates into the plugin skill's fetch_assets.py later.
+Owned by the `test-assets` skill: its scripts/vendor_assets.py does the manifest-driven
+fetch (sparse git checkout at `revision`; `gz fuel download` + dependency flattening;
+`huggingface_hub` snapshot of the slice), prints diff summaries and sizes, idempotent
+re-runs. This corpus build is that script's first real workout — any friction is a
+learning for the skill, not a local workaround here.
 
-Dataset slicing: keep the **first N episodes** (deterministic choice, not random) with
-N sized to keep each dataset ≤ ~50 MB; record N and the source revision in MANIFEST.
-Slices stay valid LeRobotDataset directories (loadable by `lerobot`, metadata
-consistent with the reduced episode count).
+Dataset slicing follows the skill's layout conventions: **first N episodes**
+(deterministic, not random), N sized to keep each dataset ≤ ~50 MB; N + source revision
+recorded in MANIFEST; slices stay valid LeRobotDataset directories (loadable by
+`lerobot`, metadata consistent with the reduced episode count).
 
 ## Size budget
 
@@ -111,8 +114,8 @@ time per asset; nothing asserted from memory.
 ## Out of scope
 
 Goldens content and recorded bags (they arrive per-app as tests get wired, into the
-dirs created here); CI wiring; the robium-plugin `test-assets` skill (deferred, spec
-exists); any HF-hosted publishing.
+dirs created here); CI wiring; authoring the `test-assets` skill itself (own spec,
+built first, in robium-plugin); any HF-hosted publishing.
 
 ## Acceptance
 
@@ -127,5 +130,5 @@ exists); any HF-hosted publishing.
 
 ## Backlog updates (robium-plugin docs/BACKLOG.md, at implementation)
 
-- Now item 0 re-pointed: vendored corpus in robium-applications is the active first
-  step; `test-assets` skill and eval harness follow it.
+- Now item 0 re-pointed: author the `test-assets` skill first, then build this
+  vendored corpus through it (skill's first hardening run); eval harness follows later.
