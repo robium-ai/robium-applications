@@ -21,7 +21,7 @@ deliberate later phase.
 ### Honesty constraints (load-bearing)
 
 - The trained checkpoint is the 100-step pipe-test artifact
-  (`jazarium/train_2026-07-15_08-09-36`); it scores 0/10 by design (the paid
+  (`robium-ai/train_2026-07-15_08-09-36`); it scores 0/10 by design (the paid
   20k-step `make train-full` hasn't run). The UI labels it "fine-tune in
   progress — currently flails" or equivalent; no success theater.
 - The **oracle** controller (scripted, ground-truth-fed, 10/10) is offered so a

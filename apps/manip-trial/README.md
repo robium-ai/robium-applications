@@ -1,6 +1,6 @@
 # manip-trial
 
-Manipulation-vertical MVP trial for the [robium](https://github.com/jazarium/robium-plugin)
+Manipulation-vertical MVP trial for the [robium](https://github.com/robium-ai/robium-plugin)
 plugin: a small-scale imitation-learning pipeline — ACT trained on the
 `lerobot/pusht` dataset, evaluated in the PushT sim — running entirely on a
 GPU-less Mac (Apple Silicon, MPS). See `docs/architecture-brief.md` for the
